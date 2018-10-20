@@ -303,7 +303,7 @@ Always OFF if building binaries"
   # Gandiva related build options
   option(ARROW_GANDIVA
     "Build the Gandiva libraries"
-    OFF)
+    ON)
 
 endif()
 

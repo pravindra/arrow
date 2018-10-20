@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include "simple_arena.h"
 
 namespace gandiva {
 #ifdef GDV_HELPERS
@@ -34,8 +35,11 @@ class ExecutionContext {
 
   bool has_error() const;
 
+  SimpleArena &arena() { return arena_; }
+
  private:
   std::unique_ptr<std::string> error_msg_;
+  SimpleArena arena_;
 };
 #ifdef GDV_HELPERS
 }  // namespace helpers

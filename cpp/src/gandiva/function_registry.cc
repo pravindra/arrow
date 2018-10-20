@@ -415,6 +415,9 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with, utf8),
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
 
+    NativeFunction("upper", DataTypeVector{utf8()}, utf8(), RESULT_NULL_IF_NULL,
+                   "upper_utf8", false /*needs_holder*/, true /*needs_context*/),
+
     NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
                    "like_utf8_utf8", true /*needs_holder*/),
 

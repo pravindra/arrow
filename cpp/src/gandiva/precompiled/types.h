@@ -50,7 +50,9 @@ extern "C" {
 bool bitMapGetBit(const unsigned char* bmap, int64_t position);
 void bitMapSetBit(unsigned char* bmap, int64_t position, bool value);
 void bitMapClearBitIfFalse(unsigned char* bmap, int64_t position, bool value);
+
 void context_set_error_msg(int64_t context_ptr, const char* err_msg);
+uint8_t *context_arena_malloc(int64_t context_ptr, int32_t size);
 
 int64 extractMillennium_timestamp(timestamp millis);
 int64 extractCentury_timestamp(timestamp millis);

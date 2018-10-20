@@ -26,4 +26,10 @@ void context_set_error_msg(int64_t context_ptr, char const* err_msg) {
       reinterpret_cast<gandiva::helpers::ExecutionContext*>(context_ptr);
   (execution_context_ptr)->set_error_msg(err_msg);
 }
+
+uint8_t *context_arena_malloc(int64_t context_ptr, int32_t size) {
+  gandiva::helpers::ExecutionContext* execution_context_ptr =
+      reinterpret_cast<gandiva::helpers::ExecutionContext*>(context_ptr);
+  return execution_context_ptr->arena().Allocate(size);
+}
 #endif

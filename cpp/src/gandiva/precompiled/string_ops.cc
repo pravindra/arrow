@@ -148,4 +148,21 @@ UTF8_LENGTH_NULL_INTERNAL(char_length, utf8)
 UTF8_LENGTH_NULL_INTERNAL(length, utf8)
 UTF8_LENGTH_NULL_INTERNAL(lengthUtf8, binary)
 
+// Convert a utf8 sequence to upper case.
+FORCE_INLINE
+char* upper_utf8(const char* data, int32 data_len, int32_t *out_len, int64 context) {
+  char *ret = (char *)context_arena_malloc(context, data_len);
+  for (int32 i = 0; i < data_len; ++i) {
+    char cur = data[i];
+
+    // 'A- - 'Z' : 0x41 - 0x5a
+    // 'a' - 'z' : 0x61 - 0x7a
+    if (cur >= 0x61 && cur <= 0x7a) {
+      cur -= 0x20;
+    }
+    ret[i] = cur;
+  }
+  return ret;
+}
+
 }  // extern "C"
