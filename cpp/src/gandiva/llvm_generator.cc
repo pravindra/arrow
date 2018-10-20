@@ -286,6 +286,15 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 
+  if (visitor.has_arena_allocs()) {
+    // Reset allocations to avoid excessive memory usage. Once the result is copied to
+    // the output vector (store instruction above), any memory allocations in this
+    // iteration of the loop are no longer needed.
+    std::vector<llvm::Value*> reset_args;
+    reset_args.push_back(arg_context_ptr);
+    AddFunctionCall("context_arena_reset", types_->void_type(), reset_args);
+  }
+
   // check loop_var
   loop_var->addIncoming(types_->i64_constant(0), loop_entry);
   llvm::Value* loop_update =
@@ -422,7 +431,8 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* functi
       arg_addrs_(arg_addrs),
       arg_local_bitmaps_(arg_local_bitmaps),
       arg_context_ptr_(arg_context_ptr),
-      loop_var_(loop_var) {
+      loop_var_(loop_var),
+      has_arena_allocs_(false) {
   ADD_VISITOR_TRACE("Iteration %T", loop_var);
 }
 
@@ -585,69 +595,69 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
   result_.reset(new LValue(value, len));
 }
 
-void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
-  ADD_VISITOR_TRACE("visit NonNullableFunc base function " +
-                    dex.func_descriptor()->name());
-  LLVMTypes* types = generator_->types_.get();
-
-  const NativeFunction* native_function = dex.native_function();
-
-  // build the function params (ignore validity).
-  auto params = BuildParams(dex.function_holder().get(), dex.args(), false,
-                            native_function->needs_context());
-
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
-
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
-  result_.reset(new LValue(value));
-}
-
-void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
-  ADD_VISITOR_TRACE("visit NullableNever base function " + dex.func_descriptor()->name());
-  LLVMTypes* types = generator_->types_.get();
-
-  const NativeFunction* native_function = dex.native_function();
-
-  // build function params along with validity.
-  auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
-                            native_function->needs_context());
-
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
-  result_.reset(new LValue(value));
-}
-
-void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
-  ADD_VISITOR_TRACE("visit NullableInternal base function " +
-                    dex.func_descriptor()->name());
+void LLVMGenerator::Visitor::VisitFunctionCommon(const FuncDex& dex,
+                                                 bool with_in_validity,
+                                                 int32_t out_local_bitmap_idx) {
   llvm::IRBuilder<>& builder = ir_builder();
   LLVMTypes* types = generator_->types_.get();
 
   const NativeFunction* native_function = dex.native_function();
 
-  // build function params along with validity.
-  auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
+  // build the function params (ignore validity).
+  auto return_type_id = native_function->signature().ret_type()->id();
+  auto params = BuildParams(dex.function_holder().get(), dex.args(), with_in_validity,
                             native_function->needs_context());
 
-  // add an extra arg for validity (alloced on stack).
-  llvm::AllocaInst* result_valid_ptr =
-      new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
-  params.push_back(result_valid_ptr);
+  // add extra arg for return length for variable len return types (alloced on stack).
+  llvm::AllocaInst* result_len_ptr = nullptr;
+  if (arrow::is_binary_like(return_type_id)) {
+    result_len_ptr = new llvm::AllocaInst(types->i32_type(), 0, "result_len", entry_block_);
+    params.push_back(result_len_ptr);
+    has_arena_allocs_ = true;
+  }
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
+  // add an extra arg for return validity, if required (alloced on stack).
+  llvm::AllocaInst* result_valid_ptr = nullptr;
+  if (out_local_bitmap_idx != FieldDescriptor::kInvalidIdx) {
+    result_valid_ptr =
+        new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
+    params.push_back(result_valid_ptr);
+  }
+
+  // Make the function call
+  llvm::Type* ret_type = types->IRType(return_type_id);
   llvm::Value* value =
       generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
+  llvm::Value *len =
+      (result_len_ptr == nullptr) ? nullptr : builder.CreateLoad(result_len_ptr);
 
   // load the result validity and truncate to i1.
-  llvm::Value* result_valid_i8 = builder.CreateLoad(result_valid_ptr);
-  llvm::Value* result_valid = builder.CreateTrunc(result_valid_i8, types->i1_type());
+  if (out_local_bitmap_idx != FieldDescriptor::kInvalidIdx) {
+    llvm::Value* result_valid_i8 = builder.CreateLoad(result_valid_ptr);
+    llvm::Value* result_valid = builder.CreateTrunc(result_valid_i8, types->i1_type());
 
-  // set validity bit in the local bitmap.
-  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), result_valid);
+    // set validity bit in the local bitmap.
+    ClearLocalBitMapIfNotValid(out_local_bitmap_idx, result_valid);
+  }
 
-  result_.reset(new LValue(value));
+  result_.reset(new LValue(value, len));
+}
+
+void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
+  ADD_VISITOR_TRACE("visit NonNullableFunc base function " +
+                    dex.func_descriptor()->name());
+  VisitFunctionCommon(dex, false /*with_validity*/, FieldDescriptor::kInvalidIdx);
+}
+
+void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
+  ADD_VISITOR_TRACE("visit NullableNever base function " + dex.func_descriptor()->name());
+  VisitFunctionCommon(dex, true /*with_in_validity*/, FieldDescriptor::kInvalidIdx);
+}
+
+void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
+  ADD_VISITOR_TRACE("visit NullableInternal base function " +
+                    dex.func_descriptor()->name());
+  VisitFunctionCommon(dex, true /*with_in_validity*/, dex.local_bitmap_idx());
 }
 
 void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
@@ -873,10 +883,15 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
 }
 
 std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
-    FunctionHolder* holder, const ValueValidityPairVector& args, bool with_validity,
-    bool with_context) {
+    FunctionHolder* holder, const ValueValidityPairVector& args,
+    bool with_validity, bool with_context) {
   LLVMTypes* types = generator_->types_.get();
   std::vector<llvm::Value*> params;
+
+  // add execution context if needed.
+  if (with_context) {
+    params.push_back(arg_context_ptr_);
+  }
 
   // if the function has holder, add the holder pointer first.
   if (holder != nullptr) {
@@ -904,12 +919,6 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
       params.push_back(validity_expr);
     }
   }
-
-  // add error holder if function can return error
-  if (with_context) {
-    params.push_back(arg_context_ptr_);
-  }
-
   return params;
 }
 

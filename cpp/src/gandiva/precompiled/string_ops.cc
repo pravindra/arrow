@@ -116,7 +116,7 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
 
 // Count the number of utf8 characters
 FORCE_INLINE
-int32 utf8_length(const char* data, int32 data_len, boolean is_valid, int64 context,
+int32 utf8_length(int64 context, const char* data, int32 data_len, boolean is_valid,
                   boolean* out_valid) {
   *out_valid = false;
   if (!is_valid) {
@@ -139,9 +139,9 @@ int32 utf8_length(const char* data, int32 data_len, boolean is_valid, int64 cont
 
 #define UTF8_LENGTH_NULL_INTERNAL(NAME, TYPE)                                 \
   FORCE_INLINE                                                                \
-  int32 NAME##_##TYPE(TYPE in, int32 in_len, boolean is_valid, int64 context, \
+  int32 NAME##_##TYPE(int64 context, TYPE in, int32 in_len, boolean is_valid, \
                       boolean* out_valid) {                                   \
-    return utf8_length(in, in_len, is_valid, context, out_valid);             \
+    return utf8_length(context, in, in_len, is_valid, out_valid);             \
   }
 
 UTF8_LENGTH_NULL_INTERNAL(char_length, utf8)
@@ -150,7 +150,7 @@ UTF8_LENGTH_NULL_INTERNAL(lengthUtf8, binary)
 
 // Convert a utf8 sequence to upper case.
 FORCE_INLINE
-char* upper_utf8(const char* data, int32 data_len, int32_t *out_len, int64 context) {
+char* upper_utf8(int64 context, const char* data, int32 data_len, int32_t *out_len) {
   char *ret = (char *)context_arena_malloc(context, data_len);
   for (int32 i = 0; i < data_len; ++i) {
     char cur = data[i];
@@ -162,6 +162,7 @@ char* upper_utf8(const char* data, int32 data_len, int32_t *out_len, int64 conte
     }
     ret[i] = cur;
   }
+  *out_len = data_len;
   return ret;
 }
 

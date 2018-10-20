@@ -29,6 +29,7 @@ class LocalBitMapValidityDex;
 class LiteralDex;
 class TrueDex;
 class FalseDex;
+class FuncDex;
 class NonNullableFuncDex;
 class NullableNeverFuncDex;
 class NullableInternalFuncDex;

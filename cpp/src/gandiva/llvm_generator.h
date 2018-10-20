@@ -95,6 +95,8 @@ class LLVMGenerator {
 
     LValuePtr result() { return result_; }
 
+    bool has_arena_allocs() { return has_arena_allocs_; }
+
    private:
     enum BufferType { kBufferTypeValidity = 0, kBufferTypeData, kBufferTypeOffsets };
 
@@ -122,6 +124,10 @@ class LLVMGenerator {
     // Clear the bit in the local bitmap, if is_valid is 'false'
     void ClearLocalBitMapIfNotValid(int local_bitmap_idx, llvm::Value* is_valid);
 
+    // Common handling for all function types.
+    void VisitFunctionCommon(const FuncDex& dex, bool with_in_validity,
+                             int32_t out_local_bitmap_idx);
+
     LLVMGenerator* generator_;
     LValuePtr result_;
     llvm::Function* function_;
@@ -130,6 +136,7 @@ class LLVMGenerator {
     llvm::Value* arg_local_bitmaps_;
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;
+    bool has_arena_allocs_;
   };
 
   // Generate the code for one expression, with the output of the expression going to

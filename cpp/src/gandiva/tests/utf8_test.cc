@@ -300,7 +300,7 @@ TEST_F(TestUtf8, TestInternalAllocs) {
                          {true, true, true, true});
 
   // expected output
-  auto exp = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});
+  auto exp = MakeArrowArrayBool({false, true, true, true}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});

@@ -64,10 +64,10 @@ TEST(TestExtendedMathOps, TestPower) {
   EXPECT_EQ(power_float64_float64(5.4, 2), 29.160000000000004);
 }
 
-TEST(TestArithmeticOps, TestLogWithBase) {
+TEST(TestExtendedMathOps, TestLogWithBase) {
   boolean is_valid;
   gandiva::helpers::ExecutionContext error_holder;
-  float64 out = log_int32_int32(1, true, 10, true, reinterpret_cast<int64>(&error_holder),
+  float64 out = log_int32_int32(reinterpret_cast<int64>(&error_holder), 1, true, 10, true,
                                 &is_valid);
   EXPECT_EQ(out, 0);
   EXPECT_EQ(is_valid, false);
@@ -76,7 +76,7 @@ TEST(TestArithmeticOps, TestLogWithBase) {
       << error_holder.get_error();
 
   gandiva::helpers::ExecutionContext error_holder1;
-  out = log_int32_int32(2, true, 64, true, reinterpret_cast<int64>(&error_holder),
+  out = log_int32_int32(reinterpret_cast<int64>(&error_holder), 2, true, 64, true,
                         &is_valid);
   EXPECT_EQ(out, 6);
   EXPECT_EQ(is_valid, true);
