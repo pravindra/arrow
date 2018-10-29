@@ -41,6 +41,21 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
 
+set(PRECOMPILED_IR_SRCS
+    decimal_ops.ll)
+
+# Create bitcode for each of the ir source files.
+foreach(SRC_FILE ${PRECOMPILED_IR_SRCS})
+  get_filename_component(SRC_BASE ${SRC_FILE} NAME_WE)
+  get_filename_component(ABSOLUTE_SRC ${SRC_FILE} ABSOLUTE)
+  set(BC_FILE ${CMAKE_CURRENT_BINARY_DIR}/${SRC_BASE}.bc)
+  add_custom_command(
+    OUTPUT ${BC_FILE}
+    COMMAND ${LLVM_AS_EXECUTABLE} ${ABSOLUTE_SRC} -o ${BC_FILE}
+    DEPENDS ${SRC_FILE})
+  list(APPEND BC_FILES ${BC_FILE})
+endforeach()
+
 # link all of the bitcode files into a single bitcode file.
 add_custom_command(
   OUTPUT ${GANDIVA_BC_OUTPUT_PATH}
@@ -59,3 +74,4 @@ add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
 add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
 add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+add_precompiled_unit_test(decimal_sample_test.cc decimal_sample.cc)

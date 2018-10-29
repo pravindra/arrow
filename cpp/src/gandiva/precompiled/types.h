@@ -39,6 +39,16 @@ using timestamp = int64_t;
 using utf8 = char*;
 using binary = char*;
 
+struct Decimal64Full {
+  int64_t value;
+  int32_t precision;
+  int32_t scale;
+
+  inline bool Equals(const Decimal64Full &o) {
+    return value == o.value && precision == o.precision && scale == o.scale;
+  }
+};
+
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.
 #define FORCE_INLINE
@@ -156,6 +166,10 @@ bool ends_with_utf8_utf8(const char* data, int32 data_len, const char* suffix,
 int32 utf8_length(int64 context, const char* data, int32 data_len);
 
 date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length);
+
+// decimal functions.
+
+void add_decimal64_decimal64(const Decimal64Full* x, const Decimal64Full* y, Decimal64Full* cout);
 
 }  // extern "C"
 

@@ -39,6 +39,7 @@ set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
       configuration.cc
       context_helper.cc
+      decimal_type_util.cc
       engine.cc
       date_utils.cc
       expr_decomposer.cc
@@ -145,6 +146,7 @@ add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
 add_gandiva_unit_test(lru_cache_test.cc)
 add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
 add_gandiva_unit_test(simple_arena_test.cc)
+add_gandiva_unit_test(decimal_type_util_test.cc decimal_type_util.cc)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

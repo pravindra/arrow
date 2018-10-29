@@ -121,12 +121,13 @@ class LLVMGenerator {
                                           bool with_validity, bool with_context);
 
     // Generate code to onvoke a function call.
-    LValuePtr BuildFunctionCall(const NativeFunction* func,
+    LValuePtr BuildFunctionCall(const NativeFunction* func, DataTypePtr arrow_return_type,
                                 std::vector<llvm::Value*>* params);
 
     // Generate code for an if-else condition.
     LValuePtr BuildIfElse(llvm::Value* condition, std::function<LValuePtr()> then_func,
-                          std::function<LValuePtr()> else_func, llvm::Type* result_type);
+                          std::function<LValuePtr()> else_func,
+                          DataTypePtr arrow_return_type);
 
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
@@ -182,6 +183,13 @@ class LLVMGenerator {
   /// is false.
   void ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value* position,
                                   llvm::Value* value);
+
+  // Generate code to build a structure (on stack) with specified value/precision/scale.
+  llvm::Value* BuildDecimal128Ref(llvm::BasicBlock* entry_block, llvm::Value* value,
+                                  DataTypePtr arrow_type);
+
+  // Generate code to extract the 128-bit value from the decimal struct.
+  llvm::Value* ExtractDecimal128FromRef(llvm::Value* value);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.

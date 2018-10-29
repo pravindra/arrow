@@ -227,7 +227,7 @@ void Engine::DumpIR(std::string prefix) {
   std::string str;
 
   llvm::raw_string_ostream stream(str);
-  module_->print(stream, NULL);
+  module_->print(stream, nullptr);
   std::cout << "====" << prefix << "===" << str << "\n";
 }
 

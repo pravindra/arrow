@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
@@ -319,6 +320,51 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
 
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for BooleanIn (100K) " << elapsed_millis << " ms\n";
+}
+
+TEST_F(TestBenchmarks, TimedTestDecimalAdd3) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 18;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field0 = field("f0", decimal_type);
+  auto field1 = field("f1", decimal_type);
+  auto field2 = field("f2", decimal_type);
+  auto schema = arrow::schema({field0, field1, field2});
+
+  Decimal128TypePtr add2_type;
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                               {decimal_type, decimal_type}, &add2_type);
+
+  Decimal128TypePtr output_type;
+  status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                          {add2_type, decimal_type}, &output_type);
+
+  // output field
+  auto field_sum = field("add", output_type);
+
+  // Build expression
+  auto part_sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field1), TreeExprBuilder::MakeField(field2)},
+      add2_type);
+  auto sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field0), part_sum}, output_type);
+
+  auto sum_expr = TreeExprBuilder::MakeExpression(sum, field_sum);
+
+  std::shared_ptr<Projector> projector;
+  status = Projector::Make(schema, {sum_expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  Decimal128DataGenerator data_generator;
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for Decimal Add3 " << elapsed_millis << " ms\n";
 }
 
 }  // namespace gandiva
