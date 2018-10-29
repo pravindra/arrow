@@ -40,6 +40,8 @@ set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
       configuration.cc
       context_helper.cc
+      decimal_ir.cc
+      decimal_type_sql.cc
       engine.cc
       date_utils.cc
       expr_decomposer.cc
@@ -48,6 +50,7 @@ set(SRC_FILES annotator.cc
       expression_registry.cc
       exported_funcs_registry.cc
       filter.cc
+      function_ir_builder.cc
       function_registry.cc
       function_signature.cc
       gdv_function_stubs.cc
@@ -106,6 +109,8 @@ install(FILES
   arrow.h
   condition.h
   configuration.h
+  decimal_full.h
+  decimal_type_sql.h
   expression.h
   expression_registry.h
   filter.h
@@ -185,6 +190,7 @@ if (ARROW_GANDIVA_BUILD_TESTS)
   ADD_GANDIVA_TEST(lru_cache_test)
   ADD_GANDIVA_TEST(to_date_holder_test)
   ADD_GANDIVA_TEST(simple_arena_test)
+  ADD_GANDIVA_TEST(decimal_type_sql_test)
 endif()
 
 if (ARROW_GANDIVA_JAVA)
