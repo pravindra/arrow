@@ -20,8 +20,10 @@ project(gandiva)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    decimal_util.cc
     extended_math_ops.cc
     hash.cc
+    multi_precision.cc
     print.cc
     string_ops.cc
     time.cc
@@ -59,3 +61,6 @@ add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
 add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
 add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+add_precompiled_unit_test(decimal_test.cc decimal_util.cc multi_precision.cc)
+add_precompiled_unit_test(multi_precision_test.cc multi_precision.cc)
+add_precompiled_unit_test(bit_util_test.cc)
