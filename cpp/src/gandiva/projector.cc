@@ -159,7 +159,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
 // TODO : handle variable-len vectors
 Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
                                  arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
-  if (!arrow::is_primitive(type->id())) {
+  const auto* fw_type = dynamic_cast<const arrow::FixedWidthType*>(type.get());
+  if (fw_type == nullptr) {
     return Status::Invalid("Unsupported output data type " + type->ToString());
   }
 
@@ -170,8 +171,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   ARROW_RETURN_NOT_OK(astatus);
 
   std::shared_ptr<arrow::Buffer> data;
-  const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
-  int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+  int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type->bit_width());
   astatus = arrow::AllocateBuffer(pool, data_len, &data);
   ARROW_RETURN_NOT_OK(astatus);
 
