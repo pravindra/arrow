@@ -15,21 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Adapted from Apache Impala
-
-#include "gandiva/precompiled/decimal_util.h"
+#include "gandiva/decimal_type_util.h"
 
 namespace gandiva {
 
-const int32_t DecimalUtil::MAX_DECIMAL4_PRECISION;
-const int32_t DecimalUtil::MAX_DECIMAL8_PRECISION;
-const int32_t DecimalUtil::MAX_PRECISION;
+constexpr int32_t DecimalTypeUtil::kMaxDecimal4Precision;
+constexpr int32_t DecimalTypeUtil::kMaxDecimal8Precision;
+constexpr int32_t DecimalTypeUtil::kMaxPrecision;
 
-const int32_t DecimalUtil::MAX_SCALE;
-const int32_t DecimalUtil::MIN_ADJUSTED_SCALE;
-
-const int32_t DecimalUtil::MAX_UNSCALED_DECIMAL4;
-const int64_t DecimalUtil::MAX_UNSCALED_DECIMAL8;
-const int128_t DecimalUtil::MAX_UNSCALED_DECIMAL16;
+constexpr int32_t DecimalTypeUtil::kMaxScale;
+constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
 
 }  // namespace gandiva

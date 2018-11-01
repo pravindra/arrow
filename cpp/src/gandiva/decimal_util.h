@@ -25,36 +25,24 @@
 #include <string>
 
 #include "arrow/util/macros.h"
-#include "gandiva/precompiled/bit_util.h"
-#include "gandiva/precompiled/multi_precision.h"
+#include "gandiva/bit_util.h"
+#include "gandiva/decimal_large_ints.h"
+#include "gandiva/decimal_type_util.h"
 
 namespace gandiva {
 
 class DecimalUtil {
  public:
-  /// The maximum precision representable by a 4-byte decimal (Decimal4Value)
-  static const int32_t MAX_DECIMAL4_PRECISION = 9;
-
-  /// The maximum precision representable by a 8-byte decimal (Decimal8Value)
-  static const int32_t MAX_DECIMAL8_PRECISION = 18;
-
-  /// The maximum precision representable by a 16-byte decimal (Decimal16Value)
-  static const int32_t MAX_PRECISION = 38;
-
-  static const int32_t MAX_SCALE = MAX_PRECISION;
-  static const int32_t MIN_ADJUSTED_SCALE = 6;
-
   /// Maximum absolute value of a valid Decimal4Value. This is 9 digits of 9's.
-  static const int32_t MAX_UNSCALED_DECIMAL4 = 999999999;
+  static const int32_t kMaxUnscaledDecimal4 = 999999999;
 
   /// Maximum absolute value of a valid Decimal8Value. This is 18 digits of 9's.
-  static const int64_t MAX_UNSCALED_DECIMAL8 = 999999999999999999;
+  static const int64_t kMaxUnscaledDecimal8 = 999999999999999999;
 
   /// Maximum absolute value a valid Decimal16Value. This is 38 digits of 9's.
-  static const int128_t MAX_UNSCALED_DECIMAL16 =
-      99 +
-      100 * (MAX_UNSCALED_DECIMAL8 +
-             (1 + MAX_UNSCALED_DECIMAL8) * static_cast<int128_t>(MAX_UNSCALED_DECIMAL8));
+  static const int128_t kMaxUnscaledDecimal16 =
+      99 + 100 * (kMaxUnscaledDecimal8 + (1 + kMaxUnscaledDecimal8) *
+                                             static_cast<int128_t>(kMaxUnscaledDecimal8));
 
   // Helper function that checks for multiplication overflow. We only check for overflow
   // if may_overflow is false.
@@ -118,7 +106,7 @@ inline int32_t DecimalUtil::GetScaleMultiplier<int32_t>(int32_t scale) {
   DCHECK_GE(scale, 0);
   static const int32_t values[] = {1,      10,      100,      1000,      10000,
                                    100000, 1000000, 10000000, 100000000, 1000000000};
-  DCHECK_GE(sizeof(values) / sizeof(int32_t), MAX_DECIMAL4_PRECISION);
+  DCHECK_GE(sizeof(values) / sizeof(int32_t), DecimalTypeUtil::kMaxDecimal4Precision);
   if (ARROW_PREDICT_TRUE(scale < 10)) return values[scale];
   return -1;  // Overflow
 }
@@ -145,7 +133,7 @@ inline int64_t DecimalUtil::GetScaleMultiplier<int64_t>(int32_t scale) {
                                    10000000000000000ll,
                                    100000000000000000ll,
                                    1000000000000000000ll};
-  DCHECK_GE(sizeof(values) / sizeof(int64_t), MAX_DECIMAL8_PRECISION);
+  DCHECK_GE(sizeof(values) / sizeof(int64_t), DecimalTypeUtil::kMaxDecimal8Precision);
   if (ARROW_PREDICT_TRUE(scale < 19)) return values[scale];
   return -1;  // Overflow
 }
@@ -193,7 +181,7 @@ inline int128_t DecimalUtil::GetScaleMultiplier<int128_t>(int32_t scale) {
       static_cast<int128_t>(1000000000000000000ll) * 100000000000000000ll * 10ll,
       static_cast<int128_t>(1000000000000000000ll) * 100000000000000000ll * 100ll,
       static_cast<int128_t>(1000000000000000000ll) * 100000000000000000ll * 1000ll};
-  DCHECK_GE(sizeof(values) / sizeof(int128_t), MAX_PRECISION);
+  DCHECK_GE(sizeof(values) / sizeof(int128_t), DecimalTypeUtil::kMaxPrecision);
   if (ARROW_PREDICT_TRUE(scale < 39)) return values[scale];
   return -1;  // Overflow
 }

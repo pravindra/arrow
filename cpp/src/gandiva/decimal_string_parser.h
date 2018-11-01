@@ -24,8 +24,8 @@
 #include <boost/type_traits.hpp>
 #include <limits>
 
-#include "gandiva/precompiled/decimal_util.h"
-#include "gandiva/precompiled/decimal_value.h"
+#include "gandiva/decimal_util.h"
+#include "gandiva/decimal_value.h"
 
 namespace gandiva {
 
@@ -52,16 +52,16 @@ namespace gandiva {
 class StringParser {
  public:
   enum ParseResult {
-    PARSE_SUCCESS = 0,
-    PARSE_FAILURE,
-    PARSE_OVERFLOW,
-    PARSE_UNDERFLOW,
+    kParseSuccess = 0,
+    kParseFailure,
+    kParseOverflow,
+    kParseUnderflow,
   };
 
   template <typename T>
   static inline T StringToInt(const char* s, int32_t len, ParseResult* result) {
     T ans = StringToIntInternal<T>(s, len, result);
-    if (ARROW_PREDICT_TRUE(*result == PARSE_SUCCESS)) return ans;
+    if (ARROW_PREDICT_TRUE(*result == kParseSuccess)) return ans;
 
     int32_t i = SkipLeadingWhitespace(s, len);
     return StringToIntInternal<T>(s + i, len - i, result);
@@ -72,7 +72,7 @@ class StringParser {
   static inline T StringToInt(const char* s, int32_t len, int32_t base,
                               ParseResult* result) {
     T ans = StringToIntInternal<T>(s, len, base, result);
-    if (ARROW_PREDICT_TRUE(*result == PARSE_SUCCESS)) return ans;
+    if (ARROW_PREDICT_TRUE(*result == kParseSuccess)) return ans;
 
     int32_t i = SkipLeadingWhitespace(s, len);
     return StringToIntInternal<T>(s + i, len - i, base, result);
@@ -81,7 +81,7 @@ class StringParser {
   template <typename T>
   static inline T StringToFloat(const char* s, int32_t len, ParseResult* result) {
     T ans = StringToFloatInternal<T>(s, len, result);
-    if (ARROW_PREDICT_TRUE(*result == PARSE_SUCCESS)) return ans;
+    if (ARROW_PREDICT_TRUE(*result == kParseSuccess)) return ans;
 
     int32_t i = SkipLeadingWhitespace(s, len);
     return StringToFloatInternal<T>(s + i, len - i, result);
@@ -90,7 +90,7 @@ class StringParser {
   /// Parses a string for 'true' or 'false', case insensitive.
   static inline bool StringToBool(const char* s, int32_t len, ParseResult* result) {
     bool ans = StringToBoolInternal(s, len, result);
-    if (ARROW_PREDICT_TRUE(*result == PARSE_SUCCESS)) return ans;
+    if (ARROW_PREDICT_TRUE(*result == kParseSuccess)) return ans;
 
     int32_t i = SkipLeadingWhitespace(s, len);
     return StringToBoolInternal(s + i, len - i, result);
@@ -185,15 +185,15 @@ class StringParser {
       } else if ((c == 'e' || c == 'E') && ARROW_PREDICT_TRUE(!found_exponent)) {
         found_exponent = true;
         exponent = StringToIntInternal<int8_t>(s + i + 1, len - i - 1, result);
-        if (ARROW_PREDICT_FALSE(*result != StringParser::PARSE_SUCCESS)) {
-          if (*result == StringParser::PARSE_OVERFLOW && exponent < 0) {
-            *result = StringParser::PARSE_UNDERFLOW;
+        if (ARROW_PREDICT_FALSE(*result != StringParser::kParseSuccess)) {
+          if (*result == StringParser::kParseOverflow && exponent < 0) {
+            *result = StringParser::kParseUnderflow;
           }
           return DecimalValue<T>(0);
         }
         break;
       } else {
-        *result = StringParser::PARSE_FAILURE;
+        *result = StringParser::kParseFailure;
         return DecimalValue<T>(0);
       }
     }
@@ -209,14 +209,14 @@ class StringParser {
 
     // Microbenchmarks show that beyond this point, returning on parse failure is slower
     // than just letting the function run out.
-    *result = StringParser::PARSE_SUCCESS;
+    *result = StringParser::kParseSuccess;
     if (ARROW_PREDICT_FALSE(precision - scale > type_precision - type_scale)) {
       // The number in the string has too many digits to the left of the dot,
       // so we overflow.
-      *result = StringParser::PARSE_OVERFLOW;
+      *result = StringParser::kParseOverflow;
     } else if (ARROW_PREDICT_FALSE(scale > type_scale)) {
       // There are too many digits to the right of the dot in the string we are parsing.
-      *result = StringParser::PARSE_UNDERFLOW;
+      *result = StringParser::kParseUnderflow;
       // The scale of 'value'.
       int32_t value_scale = scale - truncated_digit_count;
       int32_t shift = value_scale - type_scale;
@@ -239,11 +239,11 @@ class StringParser {
         if (ARROW_PREDICT_FALSE(value ==
                                 DecimalUtil::GetScaleMultiplier<T>(type_precision))) {
           // Overflow due to rounding.
-          *result = StringParser::PARSE_OVERFLOW;
+          *result = StringParser::kParseOverflow;
         }
       }
     } else if (ARROW_PREDICT_FALSE(!found_value && !found_dot)) {
-      *result = StringParser::PARSE_FAILURE;
+      *result = StringParser::kParseFailure;
     } else if (type_scale > scale) {
       // There were not enough digits after the dot, so we have scale up the value.
       DCHECK_EQ(truncated_digit_count, 0);
@@ -259,11 +259,11 @@ class StringParser {
   /// This is considerably faster than glibc's implementation.
   /// In the case of overflow, the max/min value for the data type will be returned.
   /// Assumes s represents a decimal number.
-  /// Return PARSE_FAILURE on leading whitespace. Trailing whitespace is allowed.
+  /// Return kParseFailure on leading whitespace. Trailing whitespace is allowed.
   template <typename T>
   static inline T StringToIntInternal(const char* s, int32_t len, ParseResult* result) {
     if (ARROW_PREDICT_FALSE(len <= 0)) {
-      *result = PARSE_FAILURE;
+      *result = kParseFailure;
       return 0;
     }
 
@@ -295,7 +295,7 @@ class StringParser {
         T digit = s[i] - '0';
         // This is a tricky check to see if adding this digit will cause an overflow.
         if (ARROW_PREDICT_FALSE(val > (max_div_10 - (digit > max_mod_10)))) {
-          *result = PARSE_OVERFLOW;
+          *result = kParseOverflow;
           return negative ? -max_val : max_val;
         }
         val = val * 10 + digit;
@@ -303,20 +303,20 @@ class StringParser {
         if ((ARROW_PREDICT_FALSE(i == first || !IsAllWhitespace(s + i, len - i)))) {
           // Reject the string because either the first char was not a digit,
           // or the remaining chars are not all whitespace
-          *result = PARSE_FAILURE;
+          *result = kParseFailure;
           return 0;
         }
         // Returning here is slightly faster than breaking the loop.
-        *result = PARSE_SUCCESS;
+        *result = kParseSuccess;
         return static_cast<T>(negative ? -val : val);
       }
     }
-    *result = PARSE_SUCCESS;
+    *result = kParseSuccess;
     return static_cast<T>(negative ? -val : val);
   }
 
   /// Convert a string s representing a number in given base into a decimal number.
-  /// Return PARSE_FAILURE on leading whitespace. Trailing whitespace is allowed.
+  /// Return kParseFailure on leading whitespace. Trailing whitespace is allowed.
   template <typename T>
   static inline T StringToIntInternal(const char* s, int32_t len, int32_t base,
                                       ParseResult* result) {
@@ -325,7 +325,7 @@ class StringParser {
     UnsignedT max_val = std::numeric_limits<T>::max();
     bool negative = false;
     if (ARROW_PREDICT_FALSE(len <= 0)) {
-      *result = PARSE_FAILURE;
+      *result = kParseFailure;
       return 0;
     }
     int32_t i = 0;
@@ -353,7 +353,7 @@ class StringParser {
         if ((ARROW_PREDICT_FALSE(i == first || !IsAllWhitespace(s + i, len - i)))) {
           // Reject the string because either the first char was not an alpha/digit,
           // or the remaining chars are not all whitespace
-          *result = PARSE_FAILURE;
+          *result = kParseFailure;
           return 0;
         }
         // skip trailing whitespace.
@@ -366,12 +366,12 @@ class StringParser {
       // This is a tricky check to see if adding this digit will cause an
       // overflow.
       if (ARROW_PREDICT_FALSE(val > (max_div_base - (digit > max_mod_base)))) {
-        *result = PARSE_OVERFLOW;
+        *result = kParseOverflow;
         return static_cast<T>(negative ? -max_val : max_val);
       }
       val = val * base + digit;
     }
-    *result = PARSE_SUCCESS;
+    *result = kParseSuccess;
     return static_cast<T>(negative ? -val : val);
   }
 
@@ -429,13 +429,13 @@ class StringParser {
   /// already does it and will cap the values to -inf/inf
   /// To avoid inaccurate conversions this function falls back to strtod for
   /// scientific notation.
-  /// Return PARSE_FAILURE on leading whitespace. Trailing whitespace is allowed.
+  /// Return kParseFailure on leading whitespace. Trailing whitespace is allowed.
   /// TODO: Investigate using intrinsics to speed up the slow strtod path.
   /// TODO: there are other possible optimizations, see IMPALA-1729
   template <typename T>
   static inline T StringToFloatInternal(const char* s, int32_t len, ParseResult* result) {
     if (ARROW_PREDICT_FALSE(len <= 0)) {
-      *result = PARSE_FAILURE;
+      *result = kParseFailure;
       return 0;
     }
 
@@ -450,12 +450,12 @@ class StringParser {
 
     // Check if we have inf or NaN.
     if (IsInfinity(s + i, len - i)) {
-      *result = PARSE_SUCCESS;
+      *result = kParseSuccess;
       return negative ? -std::numeric_limits<T>::infinity()
                       : std::numeric_limits<T>::infinity();
     }
     if (IsNaN(s + i, len - i)) {
-      *result = PARSE_SUCCESS;
+      *result = kParseSuccess;
       return negative ? -std::numeric_limits<T>::quiet_NaN()
                       : std::numeric_limits<T>::quiet_NaN();
     }
@@ -495,7 +495,7 @@ class StringParser {
         if ((ARROW_PREDICT_FALSE(i == first || !IsAllWhitespace(s + i, len - i)))) {
           // Reject the string because either the first char was not a digit, "." or "e",
           // or the remaining chars are not all whitespace
-          *result = PARSE_FAILURE;
+          *result = kParseFailure;
           return 0;
         }
         // skip trailing whitespace.
@@ -519,7 +519,7 @@ class StringParser {
         // skip trailing whitespace
         int32_t trailing_len = len - negative - static_cast<int32_t>(s_end - c_str);
         if (ARROW_PREDICT_FALSE(!IsAllWhitespace(s_end, trailing_len))) {
-          *result = PARSE_FAILURE;
+          *result = kParseFailure;
           return val;
         }
       }
@@ -527,18 +527,18 @@ class StringParser {
 
     // Determine if it is an overflow case and update the result
     if (ARROW_PREDICT_FALSE(val == std::numeric_limits<T>::infinity())) {
-      *result = PARSE_OVERFLOW;
+      *result = kParseOverflow;
     } else {
-      *result = PARSE_SUCCESS;
+      *result = kParseSuccess;
     }
     return (T)(negative ? -val : val);
   }
 
   /// Parses a string for 'true' or 'false', case insensitive.
-  /// Return PARSE_FAILURE on leading whitespace. Trailing whitespace is allowed.
+  /// Return kParseFailure on leading whitespace. Trailing whitespace is allowed.
   static inline bool StringToBoolInternal(const char* s, int32_t len,
                                           ParseResult* result) {
-    *result = PARSE_SUCCESS;
+    *result = kParseSuccess;
     if (len >= 4 && (s[0] == 't' || s[0] == 'T')) {
       bool match = (s[1] == 'r' || s[1] == 'R') && (s[2] == 'u' || s[2] == 'U') &&
                    (s[3] == 'e' || s[3] == 'E');
@@ -548,7 +548,7 @@ class StringParser {
                    (s[3] == 's' || s[3] == 'S') && (s[4] == 'e' || s[4] == 'E');
       if (match && ARROW_PREDICT_TRUE(IsAllWhitespace(s + 5, len - 5))) return false;
     }
-    *result = PARSE_FAILURE;
+    *result = kParseFailure;
     return false;
   }
 
@@ -582,14 +582,14 @@ class StringParser {
   static inline T StringToIntNoOverflow(const char* s, int32_t len, ParseResult* result) {
     T val = 0;
     if (ARROW_PREDICT_FALSE(len == 0)) {
-      *result = PARSE_SUCCESS;
+      *result = kParseSuccess;
       return val;
     }
     // Factor out the first char for error handling speeds up the loop.
     if (ARROW_PREDICT_TRUE(s[0] >= '0' && s[0] <= '9')) {
       val = s[0] - '0';
     } else {
-      *result = PARSE_FAILURE;
+      *result = kParseFailure;
       return 0;
     }
     for (int32_t i = 1; i < len; ++i) {
@@ -598,14 +598,14 @@ class StringParser {
         val = val * 10 + digit;
       } else {
         if ((ARROW_PREDICT_FALSE(!IsAllWhitespace(s + i, len - i)))) {
-          *result = PARSE_FAILURE;
+          *result = kParseFailure;
           return 0;
         }
-        *result = PARSE_SUCCESS;
+        *result = kParseSuccess;
         return val;
       }
     }
-    *result = PARSE_SUCCESS;
+    *result = kParseSuccess;
     return val;
   }
 

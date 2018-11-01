@@ -19,8 +19,8 @@
 
 #include <gtest/gtest.h>
 
-#include "gandiva/precompiled/bit_util.h"
-#include "gandiva/precompiled/multi_precision.h"
+#include "gandiva/bit_util.h"
+#include "gandiva/decimal_large_ints.h"
 
 namespace gandiva {
 

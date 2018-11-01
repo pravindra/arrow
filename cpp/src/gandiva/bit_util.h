@@ -28,8 +28,8 @@
 #endif
 
 #include "arrow/util/macros.h"
+#include "gandiva/decimal_large_ints.h"
 #include "gandiva/logging.h"
-#include "gandiva/precompiled/multi_precision.h"
 
 namespace gandiva {
 

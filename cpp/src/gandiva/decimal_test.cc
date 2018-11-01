@@ -25,8 +25,8 @@
 #include <iostream>
 #include <limits>
 
-#include "gandiva/precompiled/decimal_value_inline.h"
-#include "gandiva/precompiled/string_parser.h"
+#include "gandiva/decimal_string_parser.h"
+#include "gandiva/decimal_value_inline.h"
 
 using std::max;
 using std::min;
@@ -52,8 +52,8 @@ void VerifyParse(const std::string& s, int32_t precision, int32_t scale, bool ro
   DecimalValue<T> val = StringParser::StringToDecimal<T>(s.c_str(), s.size(), precision,
                                                          scale, round, &parse_result);
   EXPECT_EQ(expected_result, parse_result) << "Failed test string: " << s;
-  if (expected_result == StringParser::PARSE_SUCCESS ||
-      expected_result == StringParser::PARSE_UNDERFLOW) {
+  if (expected_result == StringParser::kParseSuccess ||
+      expected_result == StringParser::kParseUnderflow) {
     VerifyEquals(expected_val, val);
   }
 }
@@ -273,234 +273,234 @@ TEST(DoubleToDecimal, Basic) {
 }
 
 TEST(StringToDecimal, Basic) {
-  StringToAllDecimals("       1234", 10, 0, 1234, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("   ", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals(" 0 0 ", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0 0", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("++0", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("--0", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("..0", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0..", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals(".0.", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0.0.", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0-", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0+", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("X", 10, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("+", 2, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("-", 2, 0, 0, StringParser::PARSE_FAILURE);
+  StringToAllDecimals("       1234", 10, 0, 1234, StringParser::kParseSuccess);
+  StringToAllDecimals("", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("   ", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals(" 0 0 ", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("0 0", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("++0", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("--0", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("..0", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("0..", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals(".0.", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("0.0.", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("0-", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("0+", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("X", 10, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("+", 2, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("-", 2, 0, 0, StringParser::kParseFailure);
 
-  StringToAllDecimals("1234", 10, 0, 1234, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("1234", 10, 2, 123400, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-1234", 10, 2, -123400, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("123", 2, 0, 123, StringParser::PARSE_OVERFLOW);
-  StringToAllDecimals("  12  ", 2, 0, 12, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("000", 2, 0, 0, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(" . ", 2, 0, 0, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-.", 2, 0, 0, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("1.", 2, 0, 1, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(".1", 10, 2, 10, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("00012.3", 10, 2, 1230, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-00012.3", 10, 2, -1230, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("0.00000", 6, 5, 0, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("1.00000", 6, 5, 100000, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("0.000000", 6, 5, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1.000000", 6, 5, 100000, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1.000004", 6, 5, 100000, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1.000005", 6, 5, 100000, StringParser::PARSE_UNDERFLOW, 100001,
-                      StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("0.4", 5, 0, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("0.5", 5, 0, 0, StringParser::PARSE_UNDERFLOW, 1,
-                      StringParser::PARSE_UNDERFLOW);
+  StringToAllDecimals("1234", 10, 0, 1234, StringParser::kParseSuccess);
+  StringToAllDecimals("1234", 10, 2, 123400, StringParser::kParseSuccess);
+  StringToAllDecimals("-1234", 10, 2, -123400, StringParser::kParseSuccess);
+  StringToAllDecimals("123", 2, 0, 123, StringParser::kParseOverflow);
+  StringToAllDecimals("  12  ", 2, 0, 12, StringParser::kParseSuccess);
+  StringToAllDecimals("000", 2, 0, 0, StringParser::kParseSuccess);
+  StringToAllDecimals(" . ", 2, 0, 0, StringParser::kParseSuccess);
+  StringToAllDecimals("-.", 2, 0, 0, StringParser::kParseSuccess);
+  StringToAllDecimals("1.", 2, 0, 1, StringParser::kParseSuccess);
+  StringToAllDecimals(".1", 10, 2, 10, StringParser::kParseSuccess);
+  StringToAllDecimals("00012.3", 10, 2, 1230, StringParser::kParseSuccess);
+  StringToAllDecimals("-00012.3", 10, 2, -1230, StringParser::kParseSuccess);
+  StringToAllDecimals("0.00000", 6, 5, 0, StringParser::kParseSuccess);
+  StringToAllDecimals("1.00000", 6, 5, 100000, StringParser::kParseSuccess);
+  StringToAllDecimals("0.000000", 6, 5, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("1.000000", 6, 5, 100000, StringParser::kParseUnderflow);
+  StringToAllDecimals("1.000004", 6, 5, 100000, StringParser::kParseUnderflow);
+  StringToAllDecimals("1.000005", 6, 5, 100000, StringParser::kParseUnderflow, 100001,
+                      StringParser::kParseUnderflow);
+  StringToAllDecimals("0.4", 5, 0, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("0.5", 5, 0, 0, StringParser::kParseUnderflow, 1,
+                      StringParser::kParseUnderflow);
 
-  StringToAllDecimals("123.45", 10, 2, 12345, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(".45", 10, 2, 45, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-.45", 10, 2, -45, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(" 123.4 ", 10, 5, 12340000, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-123.45", 10, 5, -12345000, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-123.456", 10, 2, -12345, StringParser::PARSE_UNDERFLOW, -12346,
-                      StringParser::PARSE_UNDERFLOW);
+  StringToAllDecimals("123.45", 10, 2, 12345, StringParser::kParseSuccess);
+  StringToAllDecimals(".45", 10, 2, 45, StringParser::kParseSuccess);
+  StringToAllDecimals("-.45", 10, 2, -45, StringParser::kParseSuccess);
+  StringToAllDecimals(" 123.4 ", 10, 5, 12340000, StringParser::kParseSuccess);
+  StringToAllDecimals("-123.45", 10, 5, -12345000, StringParser::kParseSuccess);
+  StringToAllDecimals("-123.456", 10, 2, -12345, StringParser::kParseUnderflow, -12346,
+                      StringParser::kParseUnderflow);
 
-  StringToAllDecimals("e", 2, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("E", 2, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("+E", 2, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals(".E", 2, 0, 0, StringParser::PARSE_FAILURE);
-  StringToAllDecimals(" 0 e 0 ", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0e 0", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0e1.0", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0e1.", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0e.1", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("0ee0", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("e1", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("1e", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("1.1.0e0", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("1e1.0", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("1..1e1", 10, 0, 100, StringParser::PARSE_FAILURE);
-  StringToAllDecimals("1e9999999999999999999", 10, 0, 0, StringParser::PARSE_OVERFLOW);
-  StringToAllDecimals("1e-38", 10, 2, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1e-38", 38, 38, 1, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-1e-38", 38, 38, -1, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("1e-39", 38, 38, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("-1e-39", 38, 38, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1e-9999999999999999999", 10, 0, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("-1e-9999999999999999999", 10, 0, 0, StringParser::PARSE_UNDERFLOW);
+  StringToAllDecimals("e", 2, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("E", 2, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals("+E", 2, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals(".E", 2, 0, 0, StringParser::kParseFailure);
+  StringToAllDecimals(" 0 e 0 ", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("0e 0", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("0e1.0", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("0e1.", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("0e.1", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("0ee0", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("e1", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("1e", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("1.1.0e0", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("1e1.0", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("1..1e1", 10, 0, 100, StringParser::kParseFailure);
+  StringToAllDecimals("1e9999999999999999999", 10, 0, 0, StringParser::kParseOverflow);
+  StringToAllDecimals("1e-38", 10, 2, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("1e-38", 38, 38, 1, StringParser::kParseSuccess);
+  StringToAllDecimals("-1e-38", 38, 38, -1, StringParser::kParseSuccess);
+  StringToAllDecimals("1e-39", 38, 38, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("-1e-39", 38, 38, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("1e-9999999999999999999", 10, 0, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("-1e-9999999999999999999", 10, 0, 0, StringParser::kParseUnderflow);
 
-  StringToAllDecimals(" 1e0 ", 10, 2, 100, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-1e0", 10, 2, -100, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("1e-0", 10, 2, 100, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(" 1e2 ", 10, 2, 10000, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-1e-2", 10, 2, -1, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(".011e3 ", 2, 0, 11, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(".00011e5 ", 2, 0, 11, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("110e-1 ", 2, 0, 11, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1.10e1 ", 2, 0, 11, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("1.10e3 ", 2, 0, 11, StringParser::PARSE_OVERFLOW);
+  StringToAllDecimals(" 1e0 ", 10, 2, 100, StringParser::kParseSuccess);
+  StringToAllDecimals("-1e0", 10, 2, -100, StringParser::kParseSuccess);
+  StringToAllDecimals("1e-0", 10, 2, 100, StringParser::kParseSuccess);
+  StringToAllDecimals(" 1e2 ", 10, 2, 10000, StringParser::kParseSuccess);
+  StringToAllDecimals("-1e-2", 10, 2, -1, StringParser::kParseSuccess);
+  StringToAllDecimals(".011e3 ", 2, 0, 11, StringParser::kParseSuccess);
+  StringToAllDecimals(".00011e5 ", 2, 0, 11, StringParser::kParseSuccess);
+  StringToAllDecimals("110e-1 ", 2, 0, 11, StringParser::kParseUnderflow);
+  StringToAllDecimals("1.10e1 ", 2, 0, 11, StringParser::kParseUnderflow);
+  StringToAllDecimals("1.10e3 ", 2, 0, 11, StringParser::kParseOverflow);
 }
 
 TEST(StringToDecimal, LargeDecimals) {
-  StringToAllDecimals("1", 1, 0, 1, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals("-1", 1, 0, -1, StringParser::PARSE_SUCCESS);
-  StringToAllDecimals(".1", 1, 0, 0, StringParser::PARSE_UNDERFLOW);
-  StringToAllDecimals("10", 1, 0, 10, StringParser::PARSE_OVERFLOW);
-  StringToAllDecimals("-10", 1, 0, -10, StringParser::PARSE_OVERFLOW);
+  StringToAllDecimals("1", 1, 0, 1, StringParser::kParseSuccess);
+  StringToAllDecimals("-1", 1, 0, -1, StringParser::kParseSuccess);
+  StringToAllDecimals(".1", 1, 0, 0, StringParser::kParseUnderflow);
+  StringToAllDecimals("10", 1, 0, 10, StringParser::kParseOverflow);
+  StringToAllDecimals("-10", 1, 0, -10, StringParser::kParseOverflow);
 
   VerifyParse(".1234567890", 10, 10, Decimal8Value(1234567890L),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-.1234567890", 10, 10, Decimal8Value(-1234567890L),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse(".12345678900", 10, 10, Decimal8Value(1234567890L),
-              StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseUnderflow);
   VerifyParse("-.12345678900", 10, 10, Decimal8Value(-1234567890L),
-              StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseUnderflow);
   VerifyParse(".1234567890", 10, 10, Decimal16Value(1234567890L),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-.1234567890", 10, 10, Decimal16Value(-1234567890L),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse(".12345678900", 10, 10, Decimal16Value(1234567890L),
-              StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseUnderflow);
   VerifyParse("-.12345678900", 10, 10, Decimal16Value(-1234567890L),
-              StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseUnderflow);
 
   // Up to 8 digits with 5 before the decimal and 3 after.
-  VerifyParse("12345.678", 8, 3, Decimal8Value(12345678L), StringParser::PARSE_SUCCESS);
-  VerifyParse("-12345.678", 8, 3, Decimal8Value(-12345678L), StringParser::PARSE_SUCCESS);
-  VerifyParse("123456.78", 8, 3, Decimal8Value(12345678L), StringParser::PARSE_OVERFLOW);
-  VerifyParse("1234.5678", 8, 3, Decimal8Value(1234567L), StringParser::PARSE_UNDERFLOW,
-              Decimal8Value(1234568L), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("12345.678", 8, 3, Decimal16Value(12345678L), StringParser::PARSE_SUCCESS);
+  VerifyParse("12345.678", 8, 3, Decimal8Value(12345678L), StringParser::kParseSuccess);
+  VerifyParse("-12345.678", 8, 3, Decimal8Value(-12345678L), StringParser::kParseSuccess);
+  VerifyParse("123456.78", 8, 3, Decimal8Value(12345678L), StringParser::kParseOverflow);
+  VerifyParse("1234.5678", 8, 3, Decimal8Value(1234567L), StringParser::kParseUnderflow,
+              Decimal8Value(1234568L), StringParser::kParseUnderflow);
+  VerifyParse("12345.678", 8, 3, Decimal16Value(12345678L), StringParser::kParseSuccess);
   VerifyParse("-12345.678", 8, 3, Decimal16Value(-12345678L),
-              StringParser::PARSE_SUCCESS);
-  VerifyParse("123456.78", 8, 3, Decimal16Value(12345678L), StringParser::PARSE_OVERFLOW);
-  VerifyParse("1234.5678", 8, 3, Decimal16Value(1234567L), StringParser::PARSE_UNDERFLOW,
-              Decimal16Value(1234568L), StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseSuccess);
+  VerifyParse("123456.78", 8, 3, Decimal16Value(12345678L), StringParser::kParseOverflow);
+  VerifyParse("1234.5678", 8, 3, Decimal16Value(1234567L), StringParser::kParseUnderflow,
+              Decimal16Value(1234568L), StringParser::kParseUnderflow);
 
   // Test max unscaled value for each of the decimal types.
-  VerifyParse("999999999", 9, 0, Decimal4Value(999999999), StringParser::PARSE_SUCCESS);
-  VerifyParse("99999.9999", 9, 4, Decimal4Value(999999999), StringParser::PARSE_SUCCESS);
-  VerifyParse("0.999999999", 9, 9, Decimal4Value(999999999), StringParser::PARSE_SUCCESS);
-  VerifyParse("-999999999", 9, 0, Decimal4Value(-999999999), StringParser::PARSE_SUCCESS);
+  VerifyParse("999999999", 9, 0, Decimal4Value(999999999), StringParser::kParseSuccess);
+  VerifyParse("99999.9999", 9, 4, Decimal4Value(999999999), StringParser::kParseSuccess);
+  VerifyParse("0.999999999", 9, 9, Decimal4Value(999999999), StringParser::kParseSuccess);
+  VerifyParse("-999999999", 9, 0, Decimal4Value(-999999999), StringParser::kParseSuccess);
   VerifyParse("-99999.9999", 9, 4, Decimal4Value(-999999999),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-0.999999999", 9, 9, Decimal4Value(-999999999),
-              StringParser::PARSE_SUCCESS);
-  VerifyParse("1000000000", 9, 0, Decimal4Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("-1000000000", 9, 0, Decimal4Value(0), StringParser::PARSE_OVERFLOW);
+              StringParser::kParseSuccess);
+  VerifyParse("1000000000", 9, 0, Decimal4Value(0), StringParser::kParseOverflow);
+  VerifyParse("-1000000000", 9, 0, Decimal4Value(0), StringParser::kParseOverflow);
 
   VerifyParse("999999999999999999", 18, 0, Decimal8Value(999999999999999999ll),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("999999.999999999999", 18, 12, Decimal8Value(999999999999999999ll),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse(".999999999999999999", 18, 18, Decimal8Value(999999999999999999ll),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-999999999999999999", 18, 0, Decimal8Value(-999999999999999999ll),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-999999.999999999999", 18, 12, Decimal8Value(-999999999999999999ll),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-.999999999999999999", 18, 18, Decimal8Value(-999999999999999999ll),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("1000000000000000000", 18, 0, Decimal8Value(0),
-              StringParser::PARSE_OVERFLOW);
+              StringParser::kParseOverflow);
   VerifyParse("01000000000000000000", 18, 0, Decimal8Value(0),
-              StringParser::PARSE_OVERFLOW);
+              StringParser::kParseOverflow);
 
-  int128_t result = DecimalUtil::MAX_UNSCALED_DECIMAL16;
+  int128_t result = DecimalUtil::kMaxUnscaledDecimal16;
   VerifyParse("99999999999999999999999999999999999999", 38, 0, Decimal16Value(result),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("99999999999999999999999999999999999999e1", 38, 0, Decimal16Value(result),
-              StringParser::PARSE_OVERFLOW);
+              StringParser::kParseOverflow);
   VerifyParse("999999999999999999999999999999999999990e-1", 38, 0, Decimal16Value(result),
-              StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseUnderflow);
   VerifyParse("999999999999999999999999999999999.99999", 38, 5, Decimal16Value(result),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse(".99999999999999999999999999999999999999", 38, 38, Decimal16Value(result),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-99999999999999999999999999999999999999", 38, 0, Decimal16Value(-result),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-999999999999999999999999999999999.99999", 38, 5, Decimal16Value(-result),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-.99999999999999999999999999999999999999", 38, 38, Decimal16Value(-result),
-              StringParser::PARSE_SUCCESS);
+              StringParser::kParseSuccess);
   VerifyParse("-.99999999999999999999999999999999999999e1", 38, 38,
-              Decimal16Value(-result), StringParser::PARSE_OVERFLOW);
+              Decimal16Value(-result), StringParser::kParseOverflow);
   VerifyParse("-.999999999999999999999999999999999999990e-1", 38, 38,
-              Decimal16Value(-result / 10), StringParser::PARSE_UNDERFLOW,
-              Decimal16Value(-result / 10 - 1), StringParser::PARSE_UNDERFLOW);
+              Decimal16Value(-result / 10), StringParser::kParseUnderflow,
+              Decimal16Value(-result / 10 - 1), StringParser::kParseUnderflow);
   VerifyParse("-.999999999999999999999999999999999999990000000000000000e-20", 38, 38,
               Decimal16Value(-result / DecimalUtil::GetScaleMultiplier<int128_t>(20)),
-              StringParser::PARSE_UNDERFLOW,
+              StringParser::kParseUnderflow,
               Decimal16Value(-result / DecimalUtil::GetScaleMultiplier<int128_t>(20) - 1),
-              StringParser::PARSE_UNDERFLOW);
+              StringParser::kParseUnderflow);
   VerifyParse("100000000000000000000000000000000000000", 38, 0, Decimal16Value(0),
-              StringParser::PARSE_OVERFLOW);
+              StringParser::kParseOverflow);
   VerifyParse("-100000000000000000000000000000000000000", 38, 0, Decimal16Value(0),
-              StringParser::PARSE_OVERFLOW);
+              StringParser::kParseOverflow);
 
   // Rounding tests.
-  VerifyParse("555.554", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("555.555", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(55556), StringParser::PARSE_UNDERFLOW);
+  VerifyParse("555.554", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow);
+  VerifyParse("555.555", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow,
+              Decimal4Value(55556), StringParser::kParseUnderflow);
   // Too many digits to the left of the dot so we overflow.
-  VerifyParse("555.555e1", 5, 2, Decimal4Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("-555.555e1", 5, 2, Decimal4Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("5555.555", 5, 2, Decimal16Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("-555.555", 5, 2, Decimal4Value(-55555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(-55556), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("-5555.555", 5, 2, Decimal16Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("5555.555e-1", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(55556), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("55555.555e-1", 5, 2, Decimal16Value(0), StringParser::PARSE_OVERFLOW);
+  VerifyParse("555.555e1", 5, 2, Decimal4Value(0), StringParser::kParseOverflow);
+  VerifyParse("-555.555e1", 5, 2, Decimal4Value(0), StringParser::kParseOverflow);
+  VerifyParse("5555.555", 5, 2, Decimal16Value(0), StringParser::kParseOverflow);
+  VerifyParse("-555.555", 5, 2, Decimal4Value(-55555), StringParser::kParseUnderflow,
+              Decimal4Value(-55556), StringParser::kParseUnderflow);
+  VerifyParse("-5555.555", 5, 2, Decimal16Value(0), StringParser::kParseOverflow);
+  VerifyParse("5555.555e-1", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow,
+              Decimal4Value(55556), StringParser::kParseUnderflow);
+  VerifyParse("55555.555e-1", 5, 2, Decimal16Value(0), StringParser::kParseOverflow);
   // Too many digits to the right of the dot and not enough to the left. Rounding via
   // ScaleDownAndRound().
-  VerifyParse("5.55444", 5, 2, Decimal4Value(555), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("5.55555", 5, 2, Decimal4Value(555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(556), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("5.555e-9", 5, 2, Decimal4Value(0), StringParser::PARSE_UNDERFLOW);
+  VerifyParse("5.55444", 5, 2, Decimal4Value(555), StringParser::kParseUnderflow);
+  VerifyParse("5.55555", 5, 2, Decimal4Value(555), StringParser::kParseUnderflow,
+              Decimal4Value(556), StringParser::kParseUnderflow);
+  VerifyParse("5.555e-9", 5, 2, Decimal4Value(0), StringParser::kParseUnderflow);
   // The number of digits to the left of the dot equals to precision - scale. Rounding
   // by adding 1 if the first truncated digit is greater or equal to 5.
-  VerifyParse("555.554", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("555.555", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(55556), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("5.55554e2", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("5.55555e2", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(55556), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("55555.4e-2", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("55555.5e-2", 5, 2, Decimal4Value(55555), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(55556), StringParser::PARSE_UNDERFLOW);
+  VerifyParse("555.554", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow);
+  VerifyParse("555.555", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow,
+              Decimal4Value(55556), StringParser::kParseUnderflow);
+  VerifyParse("5.55554e2", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow);
+  VerifyParse("5.55555e2", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow,
+              Decimal4Value(55556), StringParser::kParseUnderflow);
+  VerifyParse("55555.4e-2", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow);
+  VerifyParse("55555.5e-2", 5, 2, Decimal4Value(55555), StringParser::kParseUnderflow,
+              Decimal4Value(55556), StringParser::kParseUnderflow);
   // Rounding causes overflow.
-  VerifyParse("999.994", 5, 2, Decimal4Value(99999), StringParser::PARSE_UNDERFLOW);
-  VerifyParse("999.995", 5, 2, Decimal4Value(99999), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("9.99995e2", 5, 2, Decimal4Value(99999), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(0), StringParser::PARSE_OVERFLOW);
-  VerifyParse("99999.5e-2", 5, 2, Decimal4Value(99999), StringParser::PARSE_UNDERFLOW,
-              Decimal4Value(0), StringParser::PARSE_OVERFLOW);
+  VerifyParse("999.994", 5, 2, Decimal4Value(99999), StringParser::kParseUnderflow);
+  VerifyParse("999.995", 5, 2, Decimal4Value(99999), StringParser::kParseUnderflow,
+              Decimal4Value(0), StringParser::kParseOverflow);
+  VerifyParse("9.99995e2", 5, 2, Decimal4Value(99999), StringParser::kParseUnderflow,
+              Decimal4Value(0), StringParser::kParseOverflow);
+  VerifyParse("99999.5e-2", 5, 2, Decimal4Value(99999), StringParser::kParseUnderflow,
+              Decimal4Value(0), StringParser::kParseOverflow);
 }
 
 TEST(DecimalTest, Overflow) {
   bool overflow = false;
 
   Decimal16Value result;
-  Decimal16Value d_max(DecimalUtil::MAX_UNSCALED_DECIMAL16);
+  Decimal16Value d_max(DecimalUtil::kMaxUnscaledDecimal16);
   Decimal16Value two(2);
   Decimal16Value one(1);
   Decimal16Value zero(0);
@@ -631,16 +631,16 @@ TEST(DecimalTest, Overflow) {
   EXPECT_TRUE(overflow);
 
   // Add 37 9's (with scale 0)
-  Decimal16Value d3(DecimalUtil::MAX_UNSCALED_DECIMAL16 / 10);
+  Decimal16Value d3(DecimalUtil::kMaxUnscaledDecimal16 / 10);
   overflow = false;
   result = d3.Add<int128_t>(0, zero, 1, 38, 1, false, &overflow);
   EXPECT_FALSE(overflow);
-  EXPECT_EQ(result.value(), DecimalUtil::MAX_UNSCALED_DECIMAL16 - 9);
+  EXPECT_EQ(result.value(), DecimalUtil::kMaxUnscaledDecimal16 - 9);
 
   overflow = false;
   result = d3.Add<int128_t>(0, one, 1, 38, 1, false, &overflow);
   EXPECT_FALSE(overflow);
-  EXPECT_EQ(result.value(), DecimalUtil::MAX_UNSCALED_DECIMAL16 - 8);
+  EXPECT_EQ(result.value(), DecimalUtil::kMaxUnscaledDecimal16 - 8);
 
   // Mod
   overflow = false;
@@ -654,7 +654,7 @@ TEST(DecimalTest, Overflow) {
   result = d3.Mod<int128_t>(0, two, 0, 38, 0, false, &is_nan, &overflow);
   EXPECT_FALSE(overflow);
   EXPECT_FALSE(is_nan);
-  EXPECT_EQ(result.value(), DecimalUtil::MAX_UNSCALED_DECIMAL16 % 2);
+  EXPECT_EQ(result.value(), DecimalUtil::kMaxUnscaledDecimal16 % 2);
 
   result = d3.Mod<int128_t>(0, zero, 1, 38, 1, false, &is_nan, &overflow);
   EXPECT_TRUE(is_nan);
@@ -701,10 +701,10 @@ struct ColumnType {
   }
 
   static ColumnType CreateAdjustedDecimalType(int32_t precision, int32_t scale) {
-    if (precision > DecimalUtil::MAX_PRECISION) {
-      int32_t min_scale = std::min(scale, DecimalUtil::MIN_ADJUSTED_SCALE);
-      int32_t delta = precision - DecimalUtil::MAX_PRECISION;
-      precision = DecimalUtil::MAX_PRECISION;
+    if (precision > DecimalTypeUtil::kMaxPrecision) {
+      int32_t min_scale = std::min(scale, DecimalTypeUtil::kMinAdjustedScale);
+      int32_t delta = precision - DecimalTypeUtil::kMaxPrecision;
+      precision = DecimalTypeUtil::kMaxPrecision;
       scale = std::max(scale - delta, min_scale);
     }
     return CreateDecimalType(precision, scale);
@@ -731,14 +731,14 @@ ColumnType GetResultType(const ColumnType& t1, const ColumnType& t2, Op op, bool
     case DIVIDE:
       if (v2) {
         int32_t result_scale =
-            max(DecimalUtil::MIN_ADJUSTED_SCALE, t1.scale + t2.precision + 1);
+            max(DecimalTypeUtil::kMinAdjustedScale, t1.scale + t2.precision + 1);
         int32_t result_precision = t1.precision - t1.scale + t2.scale + result_scale;
         return ColumnType::CreateAdjustedDecimalType(result_precision, result_scale);
       } else {
         return ColumnType::CreateDecimalType(
-            min(DecimalUtil::MAX_PRECISION,
+            min(DecimalTypeUtil::kMaxPrecision,
                 t1.precision - t1.scale + t2.scale + max(4, t1.scale + t2.precision + 1)),
-            min(DecimalUtil::MAX_PRECISION, max(4, t1.scale + t2.precision + 1)));
+            min(DecimalTypeUtil::kMaxPrecision, max(4, t1.scale + t2.precision + 1)));
       }
     case MOD:
       return ColumnType::CreateDecimalType(

@@ -17,7 +17,7 @@
 
 // Adapted from Apache Impala
 
-#include "gandiva/precompiled/multi_precision.h"
+#include "gandiva/decimal_large_ints.h"
 
 namespace gandiva {
 

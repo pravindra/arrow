@@ -17,8 +17,8 @@
 
 // Adapted from Apache Impala
 
-#ifndef GANDIVA_RUNTIME_MULTI_PRECISION_H
-#define GANDIVA_RUNTIME_MULTI_PRECISION_H
+#ifndef GANDIVA_DECIMAL_LARGE_INTS_H
+#define GANDIVA_DECIMAL_LARGE_INTS_H
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
