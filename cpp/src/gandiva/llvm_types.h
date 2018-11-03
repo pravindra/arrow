@@ -43,6 +43,8 @@ class LLVMTypes {
 
   llvm::Type* i64_type() { return llvm::Type::getInt64Ty(context_); }
 
+  llvm::Type* i128_type() { return llvm::Type::getInt128Ty(context_); }
+
   llvm::Type* float_type() { return llvm::Type::getFloatTy(context_); }
 
   llvm::Type* double_type() { return llvm::Type::getDoubleTy(context_); }
@@ -53,11 +55,20 @@ class LLVMTypes {
 
   llvm::PointerType* i64_ptr_type() { return llvm::PointerType::get(i64_type(), 0); }
 
+  llvm::Type* void_type() { return llvm::Type::getVoidTy(context_); }
+
   llvm::PointerType* ptr_type(llvm::Type* base_type) {
     return llvm::PointerType::get(base_type, 0);
   }
 
-  llvm::Type* void_type() { return llvm::Type::getVoidTy(context_); }
+  // see "struct IRDecima128"
+  llvm::StructType* decimal128_struct_type() {
+    return llvm::StructType::get(context_, {i128_type(), i32_type(), i32_type()}, false);
+  }
+
+  llvm::Type* decimal128_ref_type() {
+    return llvm::PointerType::get(decimal128_struct_type(), 0);
+  }
 
   llvm::Constant* true_constant() {
     return llvm::ConstantInt::get(context_, llvm::APInt(1, 1));
@@ -87,6 +98,10 @@ class LLVMTypes {
     return llvm::ConstantInt::get(context_, llvm::APInt(64, val));
   }
 
+  llvm::Constant* i128_zero() {
+    return llvm::ConstantInt::get(context_, llvm::APInt(128, 0));
+  }
+
   llvm::Constant* float_constant(float val) {
     return llvm::ConstantFP::get(float_type(), val);
   }
@@ -108,7 +123,11 @@ class LLVMTypes {
 
   /// For a given data type, find the ir type used for the data vector slot.
   llvm::Type* DataVecType(const DataTypePtr& data_type) {
-    return IRType(data_type->id());
+    if (data_type->id() == arrow::Type::DECIMAL) {
+      return i128_type();
+    } else {
+      return IRType(data_type->id());
+    }
   }
 
   /// For a given minor type, find the corresponding ir type.

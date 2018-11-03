@@ -121,7 +121,7 @@ class LLVMGenerator {
                                           bool with_validity, bool with_context);
 
     // Generate code to onvoke a function call.
-    LValuePtr BuildFunctionCall(const NativeFunction* func,
+    LValuePtr BuildFunctionCall(const NativeFunction* func, DataTypePtr arrow_return_type,
                                 std::vector<llvm::Value*>* params);
 
     // Generate code for an if-else condition.
@@ -136,6 +136,12 @@ class LLVMGenerator {
 
     // Clear the bit in the local bitmap, if is_valid is 'false'
     void ClearLocalBitMapIfNotValid(int local_bitmap_idx, llvm::Value* is_valid);
+
+    llvm::Value* BuildDecimal128Ref(llvm::Value* value, DataTypePtr arrow_type);
+
+    // cast to int8_t * for compatibility with clang generated IR.
+    // TODO : is there a way to avoid this ?
+    llvm::Value* CastDecimal128RefToVoidPtr(llvm::Value* ref);
 
     LLVMGenerator* generator_;
     LValuePtr result_;
@@ -182,6 +188,10 @@ class LLVMGenerator {
   /// is false.
   void ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value* position,
                                   llvm::Value* value);
+
+  // Generate code to build a structure (on stack) with specified value/precision/scale.
+  llvm::Value* BuildDecimal128Ref(llvm::Value* value, llvm::Value* precision,
+                                  llvm::Value* scale);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.

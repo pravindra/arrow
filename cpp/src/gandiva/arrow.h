@@ -51,6 +51,14 @@ using ArrayDataVector = std::vector<ArrayDataPtr>;
 using Status = arrow::Status;
 using StatusCode = arrow::StatusCode;
 
+static inline bool is_decimal_128(DataTypePtr type) {
+  if (type->id() == arrow::Type::DECIMAL) {
+    auto decimal_type = dynamic_cast<arrow::DecimalType*>(type.get());
+    return decimal_type->byte_width() == 16;
+  } else {
+    return false;
+  }
+}
 }  // namespace gandiva
 
 #endif  // GANDIVA_EXPR_ARROW_H

@@ -20,6 +20,7 @@ project(gandiva)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    decimal_ops.cc
     extended_math_ops.cc
     hash.cc
     print.cc

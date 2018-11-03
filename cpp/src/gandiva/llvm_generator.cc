@@ -29,6 +29,7 @@
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/ir_struct_types.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -279,11 +280,29 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
 
   // save the value in the output vector.
   builder->SetInsertPoint(loop_body_tail);
-  if (output->Type()->id() == arrow::Type::BOOL) {
-    SetPackedBitValue(output_ref, loop_var, output_value->data());
-  } else {
-    llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
-    builder->CreateStore(output_value->data(), slot_offset);
+  switch (output->Type()->id()) {
+    case arrow::Type::BOOL:
+      SetPackedBitValue(output_ref, loop_var, output_value->data());
+      break;
+
+    case arrow::Type::DECIMAL: {
+      DCHECK_EQ(is_decimal_128(output->Type()), true);
+
+      // Extract value part from the decimal struct
+      auto dec_struct = builder->CreateGEP(
+          types()->decimal128_struct_type(), output_value->data(),
+          {types()->i32_constant(0), types()->i32_constant(0)}, "member_p");
+      auto val = builder->CreateLoad(dec_struct, "member");
+
+      llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
+      builder->CreateStore(val, slot_offset);
+      break;
+    }
+
+    default:
+      llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
+      builder->CreateStore(output_value->data(), slot_offset);
+      break;
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 
@@ -412,20 +431,35 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* functi
 
 void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
   llvm::IRBuilder<>* builder = ir_builder();
-
   llvm::Value* slot_ref = GetBufferReference(dex.DataIdx(), kBufferTypeData, dex.Field());
-
   llvm::Value* slot_value;
-  if (dex.FieldType()->id() == arrow::Type::BOOL) {
-    slot_value = generator_->GetPackedBitValue(slot_ref, loop_var_);
-  } else {
-    llvm::Value* slot_offset = builder->CreateGEP(slot_ref, loop_var_);
-    slot_value = builder->CreateLoad(slot_offset, dex.FieldName());
-  }
+  std::shared_ptr<LValue> lvalue;
 
+  switch (dex.FieldType()->id()) {
+    case arrow::Type::BOOL:
+      slot_value = generator_->GetPackedBitValue(slot_ref, loop_var_);
+      lvalue = std::make_shared<LValue>(slot_value);
+      break;
+
+    case arrow::Type::DECIMAL: {
+      auto slot_offset = builder->CreateGEP(slot_ref, loop_var_);
+      slot_value = builder->CreateLoad(slot_offset, dex.FieldName());
+
+      auto decimal_ref = BuildDecimal128Ref(slot_value, dex.FieldType());
+      lvalue = std::make_shared<LValue>(CastDecimal128RefToVoidPtr(decimal_ref));
+      break;
+    }
+
+    default: {
+      auto slot_offset = builder->CreateGEP(slot_ref, loop_var_);
+      slot_value = builder->CreateLoad(slot_offset, dex.FieldName());
+      lvalue = std::make_shared<LValue>(slot_value);
+      break;
+    }
+  }
   ADD_VISITOR_TRACE("visit fixed-len data vector " + dex.FieldName() + " value %T",
                     slot_value);
-  result_.reset(new LValue(slot_value));
+  result_ = lvalue;
 }
 
 void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
@@ -579,13 +613,14 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
   auto params = BuildParams(dex.function_holder().get(), dex.args(), false,
                             native_function->NeedsContext());
 
+  auto arrow_return_type = dex.func_descriptor()->return_type();
   if (native_function->CanReturnErrors()) {
     // slow path : if a function can return errors, skip invoking the function
     // unless all of the input args are valid. Otherwise, it can cause spurious errors.
 
     llvm::IRBuilder<>* builder = ir_builder();
     LLVMTypes* types = generator_->types();
-    auto arrow_type_id = native_function->signature().ret_type()->id();
+    auto arrow_type_id = arrow_return_type->id();
     auto result_type = types->IRType(arrow_type_id);
 
     // Build combined validity of the args.
@@ -599,7 +634,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     auto then_lambda = [&] {
       ADD_VISITOR_TRACE("fn " + function_name +
                         " can return errors : all args valid, invoke fn");
-      return BuildFunctionCall(native_function, &params);
+      return BuildFunctionCall(native_function, arrow_return_type, &params);
     };
 
     // else block
@@ -617,7 +652,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     result_ = BuildIfElse(is_valid, then_lambda, else_lambda, result_type);
   } else {
     // fast path : invoke function without computing validities.
-    result_ = BuildFunctionCall(native_function, &params);
+    result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
   }
 }
 
@@ -629,7 +664,8 @@ void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
                             native_function->NeedsContext());
 
-  result_ = BuildFunctionCall(native_function, &params);
+  auto arrow_return_type = dex.func_descriptor()->return_type();
+  result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
 }
 
 void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
@@ -649,7 +685,8 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
       new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
   params.push_back(result_valid_ptr);
 
-  result_ = BuildFunctionCall(native_function, &params);
+  auto arrow_return_type = dex.func_descriptor()->return_type();
+  result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
 
   // load the result validity and truncate to i1.
   llvm::Value* result_valid_i8 = builder->CreateLoad(result_valid_ptr);
@@ -953,25 +990,36 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
 }
 
 LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
+                                                    DataTypePtr arrow_return_type,
                                                     std::vector<llvm::Value*>* params) {
-  auto arrow_return_type = func->signature().ret_type()->id();
-  auto llvm_return_type = generator_->types()->IRType(arrow_return_type);
+  auto types = generator_->types();
+  auto arrow_return_type_id = arrow_return_type->id();
+  auto llvm_return_type = types->IRType(arrow_return_type_id);
 
-  // add extra arg for return length for variable len return types (alloced on stack).
-  llvm::AllocaInst* result_len_ptr = nullptr;
-  if (arrow::is_binary_like(arrow_return_type)) {
-    result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,
-                                          "result_len", entry_block_);
-    params->push_back(result_len_ptr);
-    has_arena_allocs_ = true;
+  if (arrow_return_type_id == arrow::Type::DECIMAL) {
+    auto ret_param = BuildDecimal128Ref(types->i128_zero(), arrow_return_type);
+    params->push_back(CastDecimal128RefToVoidPtr(ret_param));
+
+    // Make the function call
+    generator_->AddFunctionCall(func->pc_name(), types->void_type(), *params);
+    return std::make_shared<LValue>(ret_param);
+  } else {
+    // add extra arg for return length for variable len return types (alloced on stack).
+    llvm::AllocaInst* result_len_ptr = nullptr;
+    if (arrow::is_binary_like(arrow_return_type_id)) {
+      result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,
+                                            "result_len", entry_block_);
+      params->push_back(result_len_ptr);
+      has_arena_allocs_ = true;
+    }
+
+    // Make the function call
+    llvm::IRBuilder<>* builder = ir_builder();
+    auto value = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+    auto value_len =
+        (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
+    return std::make_shared<LValue>(value, value_len);
   }
-
-  // Make the function call
-  llvm::IRBuilder<>* builder = ir_builder();
-  auto value = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
-  auto value_len =
-      (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
-  return std::make_shared<LValue>(value, value_len);
 }
 
 std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
@@ -1075,6 +1123,34 @@ void LLVMGenerator::Visitor::ClearLocalBitMapIfNotValid(int local_bitmap_idx,
                                                         llvm::Value* is_valid) {
   llvm::Value* slot_ref = GetLocalBitMapReference(local_bitmap_idx);
   generator_->ClearPackedBitValueIfFalse(slot_ref, loop_var_, is_valid);
+}
+
+llvm::Value* LLVMGenerator::Visitor::BuildDecimal128Ref(llvm::Value* value,
+                                                        DataTypePtr arrow_type) {
+  llvm::IRBuilder<>* builder = ir_builder();
+  LLVMTypes* types = generator_->types();
+
+  // only decimals of size 128-bit supported.
+  DCHECK_EQ(is_decimal_128(arrow_type), true);
+  auto decimal_type = dynamic_cast<arrow::DecimalType*>(arrow_type.get());
+
+  // build code for struct
+  auto undef = llvm::UndefValue::get(types->decimal128_struct_type());
+  auto struct_val = builder->CreateInsertValue(undef, value, 0);
+  struct_val = builder->CreateInsertValue(
+      struct_val, types->i32_constant(decimal_type->precision()), 1);
+  struct_val = builder->CreateInsertValue(struct_val,
+                                          types->i32_constant(decimal_type->scale()), 2);
+
+  // alloc on-stack
+  auto ref = new llvm::AllocaInst(types->decimal128_struct_type(), 0, "decimal_in",
+                                  entry_block_);
+  builder->CreateStore(struct_val, ref);
+  return ref;
+}
+
+llvm::Value* LLVMGenerator::Visitor::CastDecimal128RefToVoidPtr(llvm::Value* ref) {
+  return ir_builder()->CreatePointerCast(ref, generator_->types()->i8_ptr_type());
 }
 
 // Hooks for tracing/printfs.

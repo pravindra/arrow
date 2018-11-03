@@ -38,6 +38,7 @@ using arrow::utf8;
 using std::vector;
 
 #define STRINGIFY(a) #a
+#define decimal128() arrow::decimal(0, 0)
 
 // Binary functions that :
 // - have the same input type for both params
@@ -186,6 +187,9 @@ using std::vector;
 
 // list of registered native functions.
 NativeFunction FunctionRegistry::pc_registry_[] = {
+    // Decimal operations TODO: merge with arithmetic
+    BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(add, decimal128),
+
     // Arithmetic operations
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
