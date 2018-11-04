@@ -40,7 +40,9 @@ LLVMTypes::LLVMTypes(llvm::LLVMContext& context) : context_(context) {
       {arrow::Type::type::TIMESTAMP, i64_type()},
       {arrow::Type::type::STRING, i8_ptr_type()},
       {arrow::Type::type::BINARY, i8_ptr_type()},
-      {arrow::Type::type::DECIMAL, decimal128_ref_type()},
+      // TODO : not able to do this, probably an ABI issue.
+      // {arrow::Type::type::DECIMAL, decimal128_ref_type()},
+      {arrow::Type::type::DECIMAL, i8_ptr_type()},
   };
 }
 

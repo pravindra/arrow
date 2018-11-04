@@ -126,7 +126,8 @@ class LLVMGenerator {
 
     // Generate code for an if-else condition.
     LValuePtr BuildIfElse(llvm::Value* condition, std::function<LValuePtr()> then_func,
-                          std::function<LValuePtr()> else_func, llvm::Type* result_type);
+                          std::function<LValuePtr()> else_func,
+                          DataTypePtr arrow_return_type);
 
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
@@ -136,12 +137,6 @@ class LLVMGenerator {
 
     // Clear the bit in the local bitmap, if is_valid is 'false'
     void ClearLocalBitMapIfNotValid(int local_bitmap_idx, llvm::Value* is_valid);
-
-    llvm::Value* BuildDecimal128Ref(llvm::Value* value, DataTypePtr arrow_type);
-
-    // cast to int8_t * for compatibility with clang generated IR.
-    // TODO : is there a way to avoid this ?
-    llvm::Value* CastDecimal128RefToVoidPtr(llvm::Value* ref);
 
     LLVMGenerator* generator_;
     LValuePtr result_;
@@ -190,8 +185,11 @@ class LLVMGenerator {
                                   llvm::Value* value);
 
   // Generate code to build a structure (on stack) with specified value/precision/scale.
-  llvm::Value* BuildDecimal128Ref(llvm::Value* value, llvm::Value* precision,
-                                  llvm::Value* scale);
+  llvm::Value* BuildDecimal128Ref(llvm::BasicBlock* entry_block, llvm::Value* value,
+                                  DataTypePtr arrow_type);
+
+  // Generate code to extract the 128-bit value from the decimal struct.
+  llvm::Value* ExtractDecimal128FromRef(llvm::Value* value);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.

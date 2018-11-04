@@ -22,6 +22,7 @@
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
 
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -63,20 +64,91 @@ TEST_F(TestDecimal, TestSimple) {
   // schema for input fields
   constexpr int32_t precision = 36;
   constexpr int32_t scale = 18;
-
-  auto decimal_type = arrow::decimal(precision, scale);
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
   auto field_a = field("a", decimal_type);
   auto field_b = field("b", decimal_type);
-  auto schema = arrow::schema({field_a, field_b});
+  auto field_c = field("c", decimal_type);
+  auto schema = arrow::schema({field_a, field_b, field_c});
+
+  Decimal128TypePtr add2_type;
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                               {decimal_type, decimal_type}, &add2_type);
+
+  Decimal128TypePtr output_type;
+  status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                          {add2_type, decimal_type}, &output_type);
 
   // output fields
-  auto output_type = arrow::decimal(37, 18);
   auto res = field("res0", output_type);
 
-  // build expression : a + b
-  auto expr = TreeExprBuilder::MakeExpression("add", {field_a, field_b}, res);
+  // build expression : a + b + c
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  auto add2 = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, add2_type);
+  auto add3 = TreeExprBuilder::MakeFunction("add", {add2, node_c}, output_type);
+  auto expr = TreeExprBuilder::MakeExpression(add3, res);
 
   // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"1", "2", "3", "4"}, scale),
+                            {false, true, true, true});
+  auto array_b =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"2", "3", "4", "5"}, scale),
+                            {false, true, true, true});
+  auto array_c =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"3", "4", "5", "6"}, scale),
+                            {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array_a, array_b, array_c});
+
+  auto expected =
+      MakeArrowArrayDecimal(output_type, MakeDecimalVector({"6", "9", "12", "15"}, scale),
+                            {false, true, true, true});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+}
+
+TEST_F(TestDecimal, TestIfElse) {
+  // schema for input fields
+  constexpr int32_t precision = 36;
+  constexpr int32_t scale = 18;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_a = field("a", decimal_type);
+  auto field_b = field("b", decimal_type);
+  auto field_c = field("c", arrow::boolean());
+  auto schema = arrow::schema({field_a, field_b, field_c});
+
+  // output fields
+  auto field_result = field("res", decimal_type);
+
+  // build expression.
+  // if (c)
+  //   a
+  // else
+  //   b
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  auto if_node = TreeExprBuilder::MakeIf(node_c, node_a, node_b, decimal_type);
+
+  auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
+
+  // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
@@ -88,14 +160,18 @@ TEST_F(TestDecimal, TestSimple) {
                             {false, true, true, true});
   auto array_b =
       MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"2", "3", "4", "5"}, scale),
+                            {true, true, true, true});
+
+  auto array_c = MakeArrowArrayBool({true, false, true, false}, {true, true, true, true});
+
+  // expected output
+  auto exp =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"0", "3", "3", "5"}, scale),
                             {false, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
-
-  auto expected =
-      MakeArrowArrayDecimal(output_type, MakeDecimalVector({"3", "5", "7", "9"}, scale),
-                            {false, true, true, true});
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array_a, array_b, array_c});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -103,7 +179,7 @@ TEST_F(TestDecimal, TestSimple) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 }  // namespace gandiva

@@ -288,19 +288,14 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
     case arrow::Type::DECIMAL: {
       DCHECK_EQ(is_decimal_128(output->Type()), true);
 
-      // Extract value part from the decimal struct
-      auto dec_struct = builder->CreateGEP(
-          types()->decimal128_struct_type(), output_value->data(),
-          {types()->i32_constant(0), types()->i32_constant(0)}, "member_p");
-      auto val = builder->CreateLoad(dec_struct, "member");
-
-      llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
-      builder->CreateStore(val, slot_offset);
+      auto slot_offset = builder->CreateGEP(output_ref, loop_var);
+      auto value = ExtractDecimal128FromRef(output_value->data());
+      builder->CreateStore(value, slot_offset);
       break;
     }
 
     default:
-      llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
+      auto slot_offset = builder->CreateGEP(output_ref, loop_var);
       builder->CreateStore(output_value->data(), slot_offset);
       break;
   }
@@ -408,6 +403,46 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
   return value;
 }
 
+llvm::Value* LLVMGenerator::BuildDecimal128Ref(llvm::BasicBlock* entry_block,
+                                               llvm::Value* value,
+                                               DataTypePtr arrow_type) {
+  llvm::IRBuilder<>* builder = ir_builder();
+
+  // only decimals of size 128-bit supported.
+  DCHECK_EQ(is_decimal_128(arrow_type), true);
+  auto decimal_type = dynamic_cast<arrow::DecimalType*>(arrow_type.get());
+
+  // build code for struct
+  auto undef = llvm::UndefValue::get(types()->decimal128_struct_type());
+  auto struct_val = builder->CreateInsertValue(undef, value, 0);
+  struct_val = builder->CreateInsertValue(
+      struct_val, types()->i32_constant(decimal_type->precision()), 1);
+  struct_val = builder->CreateInsertValue(
+      struct_val, types()->i32_constant(decimal_type->scale()), 2);
+
+  // alloc on-stack
+  auto ref = new llvm::AllocaInst(types()->decimal128_struct_type(), 0, "decimal_in",
+                                  entry_block);
+  builder->CreateStore(struct_val, ref);
+
+  // cast to int8_t * for compatibility with clang generated IR.
+  // TODO : is there a way to avoid this ?
+  return ir_builder()->CreatePointerCast(ref, types()->i8_ptr_type());
+}
+
+llvm::Value* LLVMGenerator::ExtractDecimal128FromRef(llvm::Value* value) {
+  llvm::IRBuilder<>* builder = ir_builder();
+
+  // cast from uint8_t * back to decimal.
+  auto ref = ir_builder()->CreatePointerCast(value, types()->decimal128_ref_type());
+
+  // Extract value part from the decimal struct
+  auto dec_struct = builder->CreateGEP(
+      types()->decimal128_struct_type(), ref,
+      {types()->i32_constant(0), types()->i32_constant(0)}, "member_p");
+  return builder->CreateLoad(dec_struct, "member");
+}
+
 #define ADD_VISITOR_TRACE(...)         \
   if (generator_->enable_ir_traces_) { \
     generator_->AddTrace(__VA_ARGS__); \
@@ -445,8 +480,9 @@ void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
       auto slot_offset = builder->CreateGEP(slot_ref, loop_var_);
       slot_value = builder->CreateLoad(slot_offset, dex.FieldName());
 
-      auto decimal_ref = BuildDecimal128Ref(slot_value, dex.FieldType());
-      lvalue = std::make_shared<LValue>(CastDecimal128RefToVoidPtr(decimal_ref));
+      auto decimal_ref =
+          generator_->BuildDecimal128Ref(entry_block_, slot_value, dex.FieldType());
+      lvalue = std::make_shared<LValue>(decimal_ref);
       break;
     }
 
@@ -649,7 +685,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
       return std::make_shared<LValue>(else_value, else_value_len);
     };
 
-    result_ = BuildIfElse(is_valid, then_lambda, else_lambda, result_type);
+    result_ = BuildIfElse(is_valid, then_lambda, else_lambda, arrow_return_type);
   } else {
     // fast path : invoke function without computing validities.
     result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
@@ -699,7 +735,6 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
 void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   ADD_VISITOR_TRACE("visit IfExpression");
   llvm::IRBuilder<>* builder = ir_builder();
-  LLVMTypes* types = generator_->types();
 
   // Evaluate condition.
   LValuePtr if_condition = BuildValueAndValidity(dex.condition_vv());
@@ -741,9 +776,8 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   };
 
   // build the if-else condition.
-  auto result_type = types->IRType(dex.result_type()->id());
-  result_ = BuildIfElse(validAndMatched, then_lambda, else_lambda, result_type);
-  if (result_type == types->i8_ptr_type()) {
+  result_ = BuildIfElse(validAndMatched, then_lambda, else_lambda, dex.result_type());
+  if (arrow::is_binary_like(dex.result_type()->id())) {
     ADD_VISITOR_TRACE("IfElse result length %T", result_->length());
   }
   ADD_VISITOR_TRACE("IfElse result value %T", result_->data());
@@ -933,7 +967,7 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
 LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
                                               std::function<LValuePtr()> then_func,
                                               std::function<LValuePtr()> else_func,
-                                              llvm::Type* result_type) {
+                                              DataTypePtr result_type) {
   llvm::IRBuilder<>* builder = ir_builder();
   llvm::LLVMContext* context = generator_->context();
   LLVMTypes* types = generator_->types();
@@ -963,12 +997,13 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
 
   // Emit the merge block.
   builder->SetInsertPoint(merge_bb);
-  llvm::PHINode* result_value = builder->CreatePHI(result_type, 2, "res_value");
+  auto llvm_type = types->IRType(result_type->id());
+  llvm::PHINode* result_value = builder->CreatePHI(llvm_type, 2, "res_value");
   result_value->addIncoming(then_lvalue->data(), then_bb);
   result_value->addIncoming(else_lvalue->data(), else_bb);
 
   llvm::PHINode* result_length = nullptr;
-  if (result_type == types->i8_ptr_type()) {
+  if (arrow::is_binary_like(result_type->id())) {
     result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
     result_length->addIncoming(then_lvalue->length(), then_bb);
     result_length->addIncoming(else_lvalue->length(), else_bb);
@@ -997,8 +1032,9 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
   auto llvm_return_type = types->IRType(arrow_return_type_id);
 
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
-    auto ret_param = BuildDecimal128Ref(types->i128_zero(), arrow_return_type);
-    params->push_back(CastDecimal128RefToVoidPtr(ret_param));
+    auto ret_param = generator_->BuildDecimal128Ref(entry_block_, types->i128_zero(),
+                                                    arrow_return_type);
+    params->push_back(ret_param);
 
     // Make the function call
     generator_->AddFunctionCall(func->pc_name(), types->void_type(), *params);
@@ -1123,34 +1159,6 @@ void LLVMGenerator::Visitor::ClearLocalBitMapIfNotValid(int local_bitmap_idx,
                                                         llvm::Value* is_valid) {
   llvm::Value* slot_ref = GetLocalBitMapReference(local_bitmap_idx);
   generator_->ClearPackedBitValueIfFalse(slot_ref, loop_var_, is_valid);
-}
-
-llvm::Value* LLVMGenerator::Visitor::BuildDecimal128Ref(llvm::Value* value,
-                                                        DataTypePtr arrow_type) {
-  llvm::IRBuilder<>* builder = ir_builder();
-  LLVMTypes* types = generator_->types();
-
-  // only decimals of size 128-bit supported.
-  DCHECK_EQ(is_decimal_128(arrow_type), true);
-  auto decimal_type = dynamic_cast<arrow::DecimalType*>(arrow_type.get());
-
-  // build code for struct
-  auto undef = llvm::UndefValue::get(types->decimal128_struct_type());
-  auto struct_val = builder->CreateInsertValue(undef, value, 0);
-  struct_val = builder->CreateInsertValue(
-      struct_val, types->i32_constant(decimal_type->precision()), 1);
-  struct_val = builder->CreateInsertValue(struct_val,
-                                          types->i32_constant(decimal_type->scale()), 2);
-
-  // alloc on-stack
-  auto ref = new llvm::AllocaInst(types->decimal128_struct_type(), 0, "decimal_in",
-                                  entry_block_);
-  builder->CreateStore(struct_val, ref);
-  return ref;
-}
-
-llvm::Value* LLVMGenerator::Visitor::CastDecimal128RefToVoidPtr(llvm::Value* ref) {
-  return ir_builder()->CreatePointerCast(ref, generator_->types()->i8_ptr_type());
 }
 
 // Hooks for tracing/printfs.
