@@ -20,25 +20,42 @@
 #include <gtest/gtest.h>
 
 #include "gandiva/decimal_type_util.h"
+#include "tests/test_util.h"
 
 namespace gandiva {
 
-TEST(DecimalResultTypes, Basic) {
-  auto t1 = std::make_shared<arrow::Decimal128Type>(38, 10);
-  auto t2 = std::make_shared<arrow::Decimal128Type>(38, 38);
-  auto t3 = std::make_shared<arrow::Decimal128Type>(38, 0);
+Decimal128TypePtr MakeDecimal(int32_t precision, int32_t scale) {
+  return std::make_shared<arrow::Decimal128Type>(precision, scale);
+}
 
+Decimal128TypePtr DoOp(DecimalTypeUtil::Op op, Decimal128TypePtr d1,
+                       Decimal128TypePtr d2) {
   Decimal128TypePtr ret_type;
+  auto status = DecimalTypeUtil::GetResultType(op, {d1, d2}, &ret_type);
+  EXPECT_TRUE(status.ok()) << status.message();
+  return ret_type;
+}
 
-  auto status =
-      DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpDivide, {t1, t2}, &ret_type);
-  EXPECT_EQ(ret_type->precision(), 38);
-  EXPECT_EQ(ret_type->scale(), 6);
+TEST(DecimalResultTypes, Basic) {
+  EXPECT_ARROW_TYPE_EQUALS(
+      MakeDecimal(31, 10),
+      DoOp(DecimalTypeUtil::kOpAdd, MakeDecimal(30, 10), MakeDecimal(30, 10)));
 
-  status =
-      DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpDivide, {t1, t3}, &ret_type);
-  EXPECT_EQ(ret_type->precision(), 38);
-  EXPECT_EQ(ret_type->scale(), 10);
+  EXPECT_ARROW_TYPE_EQUALS(
+      MakeDecimal(32, 6),
+      DoOp(DecimalTypeUtil::kOpAdd, MakeDecimal(30, 6), MakeDecimal(30, 5)));
+
+  EXPECT_ARROW_TYPE_EQUALS(
+      MakeDecimal(38, 9),
+      DoOp(DecimalTypeUtil::kOpAdd, MakeDecimal(30, 10), MakeDecimal(38, 10)));
+
+  EXPECT_ARROW_TYPE_EQUALS(
+      MakeDecimal(38, 9),
+      DoOp(DecimalTypeUtil::kOpAdd, MakeDecimal(38, 10), MakeDecimal(38, 38)));
+
+  EXPECT_ARROW_TYPE_EQUALS(
+      MakeDecimal(38, 6),
+      DoOp(DecimalTypeUtil::kOpAdd, MakeDecimal(38, 10), MakeDecimal(38, 2)));
 }
 
 }  // namespace gandiva

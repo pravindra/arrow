@@ -82,6 +82,9 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
   EXPECT_TRUE((a)->Equals(b)) << "expected array: " << (a)->ToString() \
                               << " actual array: " << (b)->ToString();
 
+#define EXPECT_ARROW_TYPE_EQUALS(a, b)                                \
+  EXPECT_TRUE((a)->Equals(b)) << "expected type: " << (a)->ToString() \
+                              << " actual type: " << (b)->ToString();
 }  // namespace gandiva
 
 #endif  // GANDIVA_TEST_UTIL_H

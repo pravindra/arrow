@@ -65,6 +65,7 @@ inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t sc
   return std::make_shared<arrow::Decimal128Type>(precision, scale);
 }
 
+// Reduce the scale if possible so that precision stays <= kMaxPrecision
 inline Decimal128TypePtr DecimalTypeUtil::MakeAdjustedType(int32_t precision,
                                                            int32_t scale) {
   if (precision > kMaxPrecision) {
@@ -84,36 +85,37 @@ inline Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& 
   auto t1 = in_types[0];
   auto t2 = in_types[1];
 
+  int32_t s1 = t1->scale();
+  int32_t s2 = t2->scale();
+  int32_t p1 = t1->precision();
+  int32_t p2 = t2->precision();
+  int32_t result_scale;
+  int32_t result_precision;
+
   switch (op) {
     case kOpAdd:
     case kOpSubtract:
-      *out_type = MakeType(
-          std::max(t1->scale(), t2->scale()) +
-              std::max(t1->precision() - t1->scale(), t2->precision() - t2->scale()) + 1,
-          std::max(t1->scale(), t2->scale()));
+      result_scale = std::max(s1, s2);
+      result_precision = std::max(p1 - s1, p2 - s2) + result_scale + 1;
       break;
 
     case kOpMultiply:
-      *out_type = MakeType(t1->precision() + t2->precision(), t1->scale() + t2->scale());
+      result_scale = s1 + s2;
+      result_precision = p1 + p2 + 1;
       break;
 
     case kOpDivide: {
-      int32_t result_scale =
-          std::max(kMinAdjustedScale, t1->scale() + t2->precision() + 1);
-      int32_t result_precision =
-          t1->precision() - t1->scale() + t2->scale() + result_scale;
-      *out_type = MakeAdjustedType(result_precision, result_scale);
+      result_scale = std::max(kMinAdjustedScale, s1 + p2 + 1);
+      result_precision = p1 - s1 + s2 + result_scale;
       break;
     }
 
     case kOpMod:
-      *out_type = MakeType(
-          std::min(t1->precision() - t1->scale(), t2->precision() - t2->scale()) +
-              std::max(t1->scale(), t2->scale()),
-          std::max(t1->scale(), t2->scale()));
+      result_scale = std::max(s1, s2);
+      result_precision = std::min(p1 - s1, p2 - s2) + result_scale;
       break;
   }
-
+  *out_type = MakeAdjustedType(result_precision, result_scale);
   return Status::OK();
 }
 
