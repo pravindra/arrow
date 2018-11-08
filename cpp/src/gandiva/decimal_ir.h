@@ -22,12 +22,12 @@
 
 namespace gandiva {
 
-/// Base class for building IR functions.
+// Decimal IR functions
 class DecimalIR : public FunctionIRBuilder {
  public:
   DecimalIR(Engine* engine) : FunctionIRBuilder(engine) {}
 
-  static Status MakeAdd(Engine* engine, std::shared_ptr<FunctionIRBuilder>* out);
+  static Status AddFunctions(Engine* engine);
 
  private:
   llvm::Value* ExtractMemberFromPtr(llvm::Value* ptr, LLVMTypes::DecimalMember member);
@@ -36,7 +36,9 @@ class DecimalIR : public FunctionIRBuilder {
   llvm::Value* AdjustToHigherScale128(llvm::Value* in_value, llvm::Value* delta_scale);
   llvm::Value* AddFastPath(llvm::Value* x_value, llvm::Value* x_scale,
                            llvm::Value* y_value, llvm::Value* y_scale);
+
   Status BuildAdd();
+  static Status MakeAdd(Engine* engine, std::shared_ptr<FunctionIRBuilder>* out);
 };
 
 }  // namespace gandiva

@@ -20,9 +20,29 @@
 #include "arrow/status.h"
 #include "gandiva/decimal_ir.h"
 
-static __int128 scale_multipliers_[]{1, 10, 100};
-
 namespace gandiva {
+
+static __int128 scale_multipliers_[] = {
+    1,
+    10,
+    100,
+    1000,
+    10000,
+    100000,
+    1000000,
+    10000000,
+    100000000,
+    1000000000,
+    10000000000,
+    100000000000,
+    1000000000000,
+    10000000000000,
+    100000000000000,
+    1000000000000000,
+    10000000000000000,
+    100000000000000000,
+    1000000000000000000,
+};
 
 //
 // Equivalent to :
@@ -149,6 +169,16 @@ Status DecimalIR::MakeAdd(Engine* engine, std::shared_ptr<FunctionIRBuilder>* ou
   ARROW_RETURN_NOT_OK(status);
 
   *out = add_builder;
+  return Status::OK();
+}
+
+Status DecimalIR::AddFunctions(Engine* engine) {
+  std::shared_ptr<FunctionIRBuilder> fbuilder;
+
+  // build "add"
+  auto status = DecimalIR::MakeAdd(engine, &fbuilder);
+  ARROW_RETURN_NOT_OK(status);
+
   return Status::OK();
 }
 

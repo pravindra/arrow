@@ -95,8 +95,8 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
   ARROW_RETURN_NOT_OK(status);
 
-  std::shared_ptr<FunctionIRBuilder> fbuilder;
-  status = DecimalIR::MakeAdd(engine_obj.get(), &fbuilder);
+  // Add decimal functions
+  status = DecimalIR::AddFunctions(engine_obj.get());
   ARROW_RETURN_NOT_OK(status);
 
   *engine = std::move(engine_obj);
