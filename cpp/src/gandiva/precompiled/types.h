@@ -44,7 +44,7 @@ struct Decimal64Full {
   int32_t precision;
   int32_t scale;
 
-  inline bool Equals(const Decimal64Full &o) {
+  inline bool Equals(const Decimal64Full& o) {
     return value == o.value && precision == o.precision && scale == o.scale;
   }
 };
@@ -169,7 +169,8 @@ date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length)
 
 // decimal functions.
 
-void add_decimal64_decimal64(const Decimal64Full* x, const Decimal64Full* y, Decimal64Full* cout);
+void add_decimal64_decimal64(const Decimal64Full* x, const Decimal64Full* y,
+                             Decimal64Full* cout);
 
 }  // extern "C"
 

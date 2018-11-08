@@ -104,11 +104,10 @@ inline Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& 
       result_precision = p1 + p2 + 1;
       break;
 
-    case kOpDivide: {
+    case kOpDivide:
       result_scale = std::max(kMinAdjustedScale, s1 + p2 + 1);
       result_precision = p1 - s1 + s2 + result_scale;
       break;
-    }
 
     case kOpMod:
       result_scale = std::max(s1, s2);

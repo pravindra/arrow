@@ -39,6 +39,7 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Vectorize.h>
+#include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
 
 namespace gandiva {
@@ -92,6 +93,10 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   engine_obj->AddGlobalMappings();
 
   auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
+  ARROW_RETURN_NOT_OK(status);
+
+  std::shared_ptr<FunctionIRBuilder> fbuilder;
+  status = DecimalIR::MakeAdd(engine_obj.get(), &fbuilder);
   ARROW_RETURN_NOT_OK(status);
 
   *engine = std::move(engine_obj);

@@ -212,6 +212,13 @@ class LLVMGenerator {
   /// Generate the code to print a trace msg with one optional argument (%T)
   void AddTrace(const std::string& msg, llvm::Value* value = NULLPTR);
 
+  // Decimal related
+  llvm::Value* BuildIfElse(llvm::Function* function, llvm::Value* condition,
+                           llvm::Type* ret_type, std::function<llvm::Value*()> then_func,
+                           std::function<llvm::Value*()> else_func);
+
+  llvm::Value* AdjustToHigherScale128(llvm::Value* in, llvm::Value* delta_scale);
+
   std::unique_ptr<Engine> engine_;
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   FunctionRegistry function_registry_;

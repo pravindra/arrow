@@ -39,6 +39,7 @@ set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
       configuration.cc
       context_helper.cc
+      decimal_ir.cc
       decimal_type_util.cc
       engine.cc
       date_utils.cc
@@ -47,6 +48,7 @@ set(SRC_FILES annotator.cc
       expression.cc
       expression_registry.cc
       exported_funcs_registry.cc
+      function_ir_builder.cc
       filter.cc
       function_registry.cc
       function_signature.cc
@@ -129,7 +131,7 @@ install(
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
 add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
     gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc
-    exported_funcs_registry.cc ${BC_FILE_PATH_CC})
+    exported_funcs_registry.cc decimal_ir.cc function_ir_builder.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
@@ -137,7 +139,7 @@ add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc eng
     llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc
     bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc
     to_date_holder.cc date_utils.cc regex_util.cc gdv_function_stubs.cc context_helper.cc
-    exported_funcs_registry.cc ${BC_FILE_PATH_CC})
+    exported_funcs_registry.cc decimal_ir.cc function_ir_builder.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
 add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
 add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)

@@ -46,14 +46,6 @@ else ()
   message(FATAL_ERROR "Couldn't find llvm-link")
 endif ()
 
-find_program(LLVM_AS_EXECUTABLE llvm-as
-  HINTS ${LLVM_TOOLS_BINARY_DIR})
-if (LLVM_AS_EXECUTABLE)
-  message(STATUS "Found llvm-as ${LLVM_AS_EXECUTABLE}")
-else ()
-  message(FATAL_ERROR "Couldn't find llvm-as")
-endif ()
-
 add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
 
 set_target_properties(LLVM::LLVM_INTERFACE PROPERTIES
@@ -65,5 +57,4 @@ set_target_properties(LLVM::LLVM_INTERFACE PROPERTIES
 mark_as_advanced(
   CLANG_EXECUTABLE
   LLVM_LINK_EXECUTABLE
-  LLVM_AS_EXECUTABLE
 )

@@ -55,18 +55,12 @@ class LLVMTypes {
 
   llvm::PointerType* i64_ptr_type() { return llvm::PointerType::get(i64_type(), 0); }
 
+  llvm::PointerType* i128_ptr_type() { return llvm::PointerType::get(i128_type(), 0); }
+
   llvm::Type* void_type() { return llvm::Type::getVoidTy(context_); }
 
   llvm::PointerType* ptr_type(llvm::Type* base_type) {
     return llvm::PointerType::get(base_type, 0);
-  }
-
-  llvm::StructType* decimal128_struct_type() {
-    return llvm::StructType::get(context_, {i128_type(), i32_type(), i32_type()}, false);
-  }
-
-  llvm::Type* decimal128_ref_type() {
-    return llvm::PointerType::get(decimal128_struct_type(), 0);
   }
 
   llvm::Constant* true_constant() {
@@ -141,6 +135,20 @@ class LLVMTypes {
       retval.push_back(element.first);
     }
     return retval;
+  }
+
+  enum DecimalMember {
+    kDecimalValueIdx,
+    kDecimalPrecisionIdx,
+    kDecimalScaleIdx,
+  };
+
+  llvm::StructType* decimal128_struct_type() {
+    return llvm::StructType::get(context_, {i128_type(), i32_type(), i32_type()}, false);
+  }
+
+  llvm::Type* decimal128_ptr_type() {
+    return llvm::PointerType::get(decimal128_struct_type(), 0);
   }
 
  private:
