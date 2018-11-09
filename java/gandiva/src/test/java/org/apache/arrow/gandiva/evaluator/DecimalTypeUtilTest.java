@@ -27,27 +27,32 @@ public class DecimalTypeUtilTest {
   public void testOutputTypesForAdd() {
     ArrowType.Decimal operand1 = getDecimal(30, 10);
     ArrowType.Decimal operand2 = getDecimal(30, 10);
-    ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForAddOperation(operand1, operand2);
+    ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, operand1, operand2);
     Assert.assertTrue(getDecimal(31, 10).equals(resultType));
 
     operand1 = getDecimal(30, 6);
     operand2 = getDecimal(30, 5);
-    resultType = DecimalTypeUtil.getResultTypeForAddOperation(operand1, operand2);
+    resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, operand1, operand2);
     Assert.assertTrue(getDecimal(32, 6).equals(resultType));
 
     operand1 = getDecimal(30, 10);
     operand2 = getDecimal(38, 10);
-    resultType = DecimalTypeUtil.getResultTypeForAddOperation(operand1, operand2);
+    resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, operand1, operand2);
     Assert.assertTrue(getDecimal(38, 9).equals(resultType));
 
     operand1 = getDecimal(38, 10);
     operand2 = getDecimal(38, 38);
-    resultType = DecimalTypeUtil.getResultTypeForAddOperation(operand1, operand2);
+    resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, operand1, operand2);
     Assert.assertTrue(getDecimal(38, 9).equals(resultType));
 
     operand1 = getDecimal(38, 10);
     operand2 = getDecimal(38, 2);
-    resultType = DecimalTypeUtil.getResultTypeForAddOperation(operand1, operand2);
+    resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, operand1, operand2);
     Assert.assertTrue(getDecimal(38, 6).equals(resultType));
 
   }
@@ -56,14 +61,15 @@ public class DecimalTypeUtilTest {
   public void testOutputTypesForMultiply() {
     ArrowType.Decimal operand1 = getDecimal(30, 10);
     ArrowType.Decimal operand2 = getDecimal(30, 10);
-    ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForMultiplyOperation(operand1,
-            operand2);
-    Assert.assertTrue(getDecimal(38, 8).equals(resultType));
+    ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+                    .OperationType.MULTIPLY, operand1, operand2);
+    Assert.assertTrue(getDecimal(38, 6).equals(resultType));
 
     operand1 = getDecimal(38, 10);
     operand2 = getDecimal(9, 2);
-    resultType = DecimalTypeUtil.getResultTypeForMultiplyOperation(operand1, operand2);
-    Assert.assertTrue(getDecimal(38, 8).equals(resultType));
+    resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.MULTIPLY, operand1, operand2);
+    Assert.assertTrue(getDecimal(38, 6).equals(resultType));
 
   }
 
@@ -71,8 +77,8 @@ public class DecimalTypeUtilTest {
   public void testOutputTypesForMod() {
     ArrowType.Decimal operand1 = getDecimal(30, 10);
     ArrowType.Decimal operand2 = getDecimal(28  , 7);
-    ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForModOperation(operand1,
-            operand2);
+    ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+                    .OperationType.MOD, operand1, operand2);
     Assert.assertTrue(getDecimal(30, 10).equals(resultType));
   }
 

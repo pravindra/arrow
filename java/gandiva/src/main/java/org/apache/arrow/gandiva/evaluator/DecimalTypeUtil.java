@@ -23,50 +23,53 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 
 public class DecimalTypeUtil {
 
+  public enum OperationType {
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE,
+    MOD
+  }
+
   private static final int MIN_ADJUSTED_SCALE = 6;
   /// The maximum precision representable by a 16-byte decimal
   private static final int MAX_PRECISION = 38;
 
-  public static Decimal getResultTypeForAddOperation(Decimal operand1, Decimal operand2) {
-    return getReturnTypeForAddSubtract(operand1, operand2);
-  }
-
-  public static Decimal getResultTypeForSubtractOperation(Decimal operand1, Decimal operand2) {
-    return getReturnTypeForAddSubtract(operand1, operand2);
-  }
-
-  public static Decimal getResultTypeForMultiplyOperation(Decimal operand1, Decimal operand2) {
-    return getReturnTypeForMultiplyDivide(operand1, operand2);
-  }
-
-  public static Decimal getResultTypeForDivideOperation(Decimal operand1, Decimal operand2) {
-    return getReturnTypeForMultiplyDivide(operand1, operand2);
-  }
-
-  public static Decimal getResultTypeForModOperation(Decimal operand1, Decimal operand2) {
-    int scale = Math.max(operand1.getScale(), operand2.getScale());
-    int precision = Math.min(operand1.getPrecision() - operand1.getScale(),
-                             operand2.getPrecision() - operand2.getScale()) +
-                    scale;
-    return adjustScaleIfNeeded(precision, scale);
-  }
-
-  private static Decimal getReturnTypeForAddSubtract(Decimal operand1, Decimal operand2) {
-    int precision = 0;
-    int scale = Math.max(operand1.getScale(), operand2.getScale());
-    precision = scale + Math.max(operand1.getPrecision() - operand1.getScale(),
-                                 operand2.getPrecision() - operand2.getScale()) + 1;
-    return adjustScaleIfNeeded(precision, scale);
-  }
-
-  private static Decimal getReturnTypeForMultiplyDivide(Decimal operand1, Decimal operand2) {
-    int precision = 0, scale = 0;
-    scale =
-            Math.max(MIN_ADJUSTED_SCALE, operand1.getScale() + operand2.getPrecision() + 1);
-    precision =
-            operand1.getPrecision() - operand1.getScale() + operand2.getScale() + scale;
-
-    return adjustScaleIfNeeded(precision, scale);
+  public static Decimal getResultTypeForOperation(OperationType operation, Decimal operand1, Decimal
+          operand2) {
+    int s1 = operand1.getScale();
+    int s2 = operand2.getScale();
+    int p1 = operand1.getPrecision();
+    int p2 = operand2.getPrecision();
+    int resultScale = 0;
+    int resultPrecision = 0;
+    switch (operation) {
+      case ADD:
+      case SUBTRACT:
+        resultScale = Math.max(operand1.getScale(), operand2.getScale());
+        resultPrecision = resultScale + Math.max(operand1.getPrecision() - operand1.getScale(),
+                operand2.getPrecision() - operand2.getScale()) + 1;
+        break;
+      case MULTIPLY:
+        resultScale = s1 + s2;
+        resultPrecision = p1 + p2 + 1;
+        break;
+      case DIVIDE:
+        resultScale =
+                Math.max(MIN_ADJUSTED_SCALE, operand1.getScale() + operand2.getPrecision() + 1);
+        resultPrecision =
+                operand1.getPrecision() - operand1.getScale() + operand2.getScale() + resultScale;
+        break;
+      case MOD:
+        resultScale = Math.max(operand1.getScale(), operand2.getScale());
+        resultPrecision = Math.min(operand1.getPrecision() - operand1.getScale(),
+                                    operand2.getPrecision() - operand2.getScale()) +
+                           resultScale;
+        break;
+      default:
+        throw new RuntimeException("Needs support");
+    }
+    return adjustScaleIfNeeded(resultPrecision, resultScale);
   }
 
   private static Decimal adjustScaleIfNeeded(int precision, int scale) {
