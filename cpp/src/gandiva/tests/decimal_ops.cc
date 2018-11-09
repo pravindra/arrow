@@ -140,9 +140,14 @@ TEST_F(TestDecimalOps, TestAdd) {
                DecimalFull{"301", 38, 2},    // y
                DecimalFull{"3211", 38, 3});  // expected
 
+  // slow-path
   AddAndVerify(DecimalFull{"201", 38, 3},    // x
-               DecimalFull{"301", 38, 2},    // y
-               DecimalFull{"2311", 38, 3});  // expected
+               DecimalFull{"301", 38, 4},    // y
+               DecimalFull{"2311", 38, 4});  // expected
+
+  AddAndVerify(DecimalFull{"201", 38, 3},      // x
+               DecimalFull{"301", 38, 7},      // y
+               DecimalFull{"201030", 38, 6});  // expected
 }
 
 }  // namespace gandiva

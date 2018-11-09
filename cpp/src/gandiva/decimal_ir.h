@@ -32,10 +32,20 @@ class DecimalIR : public FunctionIRBuilder {
  private:
   llvm::Value* ExtractMemberFromPtr(llvm::Value* ptr, LLVMTypes::DecimalMember member);
 
+  llvm::Value* GetScaleMultiplier(llvm::Value* scale);
+
   llvm::Value* GetHigherScale(llvm::Value* x_scale, llvm::Value* y_scale);
-  llvm::Value* AdjustToHigherScale128(llvm::Value* in_value, llvm::Value* delta_scale);
+
+  llvm::Value* IncreaseScale(llvm::Value* in_value, llvm::Value* increase_scale_by);
+
+  llvm::Value* ReduceScale(llvm::Value* in_value, llvm::Value* reduce_scale_by);
+
   llvm::Value* AddFastPath(llvm::Value* x_value, llvm::Value* x_scale,
                            llvm::Value* y_value, llvm::Value* y_scale);
+
+  llvm::Value* AddAndReduceScale(llvm::Value* x_value, llvm::Value* x_scale,
+                                 llvm::Value* y_value, llvm::Value* y_scale,
+                                 llvm::Value* out_scale);
 
   Status BuildAdd();
   static Status MakeAdd(Engine* engine, std::shared_ptr<FunctionIRBuilder>* out);
