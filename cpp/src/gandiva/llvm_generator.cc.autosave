@@ -284,6 +284,15 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
       SetPackedBitValue(output_ref, loop_var, output_value->data());
       break;
 
+    case arrow::Type::DECIMAL: {
+      DCHECK_EQ(is_decimal_128(output->Type()), true);
+
+      auto slot_offset = builder->CreateGEP(output_ref, loop_var);
+      auto value = ExtractDecimal128FromRef(output_value->data());
+      builder->CreateStore(value, slot_offset);
+      break;
+    }
+
     default:
       auto slot_offset = builder->CreateGEP(output_ref, loop_var);
       builder->CreateStore(output_value->data(), slot_offset);
@@ -335,16 +344,6 @@ void LLVMGenerator::SetPackedBitValue(llvm::Value* bitmap, llvm::Value* position
   llvm::Value* bitmap8 = ir_builder()->CreateBitCast(
       bitmap, types()->ptr_type(types()->i8_type()), "bitMapCast");
   AddFunctionCall("bitMapSetBit", types()->void_type(), {bitmap8, position, value});
-}
-
-/// Return value of a bit in validity bitMap (handles null bitmaps too).
-llvm::Value* LLVMGenerator::GetPackedValidityBitValue(llvm::Value* bitmap,
-                                                      llvm::Value* position) {
-  ADD_TRACE("fetch validity bit at position %T", position);
-
-  llvm::Value* bitmap8 = ir_builder()->CreateBitCast(
-      bitmap, types()->ptr_type(types()->i8_type()), "bitMapCast");
-  return AddFunctionCall("bitMapValidityGetBit", types()->i1_type(), {bitmap8, position});
 }
 
 /// Clear the bit in bitMap if value = false.
@@ -403,15 +402,38 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
   return value;
 }
 
-std::shared_ptr<LValueDecimal> LLVMGenerator::BuildLValueDecimal(llvm::Value* value,
-                                                                 DataTypePtr arrow_type) {
+llvm::Value* LLVMGenerator::BuildDecimal128Ref(llvm::BasicBlock* entry_block,
+                                               llvm::Value* value,
+                                               DataTypePtr arrow_type) {
+  llvm::IRBuilder<>* builder = ir_builder();
+
   // only decimals of size 128-bit supported.
-  DCHECK(is_decimal_128(arrow_type));
-  auto decimal_type =
-      arrow::internal::checked_cast<arrow::DecimalType*>(arrow_type.get());
-  return std::make_shared<LValueDecimal>(value, nullptr,
-                                         types()->i32_constant(decimal_type->precision()),
-                                         types()->i32_constant(decimal_type->scale()));
+  DCHECK_EQ(is_decimal_128(arrow_type), true);
+  auto decimal_type = dynamic_cast<arrow::DecimalType*>(arrow_type.get());
+
+  // build code for struct
+  auto undef = llvm::UndefValue::get(types()->decimal128_struct_type());
+  auto struct_val = builder->CreateInsertValue(undef, value, 0);
+  struct_val = builder->CreateInsertValue(
+      struct_val, types()->i32_constant(decimal_type->precision()), 1);
+  struct_val = builder->CreateInsertValue(
+      struct_val, types()->i32_constant(decimal_type->scale()), 2);
+
+  // alloc on-stack
+  auto ref = new llvm::AllocaInst(types()->decimal128_struct_type(), 0, "decimal_in",
+                                  entry_block);
+  builder->CreateStore(struct_val, ref);
+  return ref;
+}
+
+llvm::Value* LLVMGenerator::ExtractDecimal128FromRef(llvm::Value* ref) {
+  llvm::IRBuilder<>* builder = ir_builder();
+
+  // Extract value part from the decimal struct
+  auto dec_struct = builder->CreateGEP(
+      types()->decimal128_struct_type(), ref,
+      {types()->i32_constant(0), types()->i32_constant(0)}, "member_p");
+  return builder->CreateLoad(dec_struct, "member");
 }
 
 #define ADD_VISITOR_TRACE(...)         \
@@ -450,7 +472,10 @@ void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
     case arrow::Type::DECIMAL: {
       auto slot_offset = builder->CreateGEP(slot_ref, loop_var_);
       slot_value = builder->CreateLoad(slot_offset, dex.FieldName());
-      lvalue = generator_->BuildLValueDecimal(slot_value, dex.FieldType());
+
+      auto decimal_ref =
+          generator_->BuildDecimal128Ref(entry_block_, slot_value, dex.FieldType());
+      lvalue = std::make_shared<LValue>(decimal_ref);
       break;
     }
 
@@ -500,7 +525,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
 void LLVMGenerator::Visitor::Visit(const VectorReadValidityDex& dex) {
   llvm::Value* slot_ref =
       GetBufferReference(dex.ValidityIdx(), kBufferTypeValidity, dex.Field());
-  llvm::Value* validity = generator_->GetPackedValidityBitValue(slot_ref, loop_var_);
+  llvm::Value* validity = generator_->GetPackedBitValue(slot_ref, loop_var_);
 
   ADD_VISITOR_TRACE("visit validity vector " + dex.FieldName() + " value %T", validity);
   result_.reset(new LValue(validity));
@@ -604,6 +629,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       value = types->i64_constant(boost::get<int64_t>(dex.holder()));
       break;
 
+    case arrow
     default:
       DCHECK(0);
   }
@@ -974,26 +1000,13 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
   result_value->addIncoming(then_lvalue->data(), then_bb);
   result_value->addIncoming(else_lvalue->data(), else_bb);
 
-  LValuePtr ret;
-  switch (result_type->id()) {
-    case arrow::Type::STRING: {
-      llvm::PHINode* result_length;
-      result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
-      result_length->addIncoming(then_lvalue->length(), then_bb);
-      result_length->addIncoming(else_lvalue->length(), else_bb);
-      ret = std::make_shared<LValue>(result_value, result_length);
-      break;
-    }
-
-    case arrow::Type::DECIMAL:
-      ret = generator_->BuildLValueDecimal(result_value, result_type);
-      break;
-
-    default:
-      ret = std::make_shared<LValue>(result_value);
-      break;
+  llvm::PHINode* result_length = nullptr;
+  if (arrow::is_binary_like(result_type->id())) {
+    result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
+    result_length->addIncoming(then_lvalue->length(), then_bb);
+    result_length->addIncoming(else_lvalue->length(), else_bb);
   }
-  return ret;
+  return std::make_shared<LValue>(result_value, result_length);
 }
 
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair& pair) {
@@ -1017,22 +1030,13 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
   auto llvm_return_type = types->IRType(arrow_return_type_id);
 
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
-    // For decimal fns, the output precision/scale are passed along as parameters.
-    //
-    // convert from this :
-    //     out = add_decimal(v1, p1, s1, v2, p2, s2)
-    // to:
-    //     out = add_decimal(v1, p1, s1, v2, p2, s2, out_p, out_s)
-
-    // Append the out_precision and out_scale
-    auto ret_lvalue = generator_->BuildLValueDecimal(nullptr, arrow_return_type);
-    params->push_back(ret_lvalue->precision());
-    params->push_back(ret_lvalue->scale());
+    auto ret_param = generator_->BuildDecimal128Ref(entry_block_, types->i128_zero(),
+                                                    arrow_return_type);
+    params->push_back(ret_param);
 
     // Make the function call
-    auto out = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
-    ret_lvalue->set_data(out);
-    return ret_lvalue;
+    generator_->AddFunctionCall(func->pc_name(), types->void_type(), *params);
+    return std::make_shared<LValue>(ret_param);
   } else {
     // add extra arg for return length for variable len return types (alloced on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;
@@ -1075,9 +1079,12 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
     DexPtr value_expr = pair->value_expr();
     value_expr->Accept(*this);
     LValue& result_ref = *result();
+    params.push_back(result_ref.data());
 
-    // append all the parameters corresponding to this LValue.
-    result_ref.AppendFunctionParams(&params);
+    // build length (for var len data types)
+    if (result_ref.length() != nullptr) {
+      params.push_back(result_ref.length());
+    }
 
     // build validity.
     if (with_validity) {

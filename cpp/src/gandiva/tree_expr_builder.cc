@@ -49,6 +49,10 @@ NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string& value) {
   return std::make_shared<LiteralNode>(arrow::binary(), LiteralHolder(value), false);
 }
 
+static NodePtr MakeDecimalLiteral(const arrow::Decimal128Type& value) {
+  return std::make_shared<LiteralNode>(arrow::Decimal128Type(), LiteralHolder(value), false);
+}
+
 NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
   static const std::string empty;
 
