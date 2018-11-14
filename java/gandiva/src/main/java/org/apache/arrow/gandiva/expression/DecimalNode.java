@@ -17,27 +17,37 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import java.nio.charset.Charset;
+
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+
+import com.google.protobuf.ByteString;
+
 
 /**
  * Used to represent expression tree nodes representing double constants.
  * Used in the expression (x + 5.0)
  */
 class DecimalNode implements TreeNode {
-  private final Double value;
+  private static final Charset charset = Charset.forName("UTF-8");
+  private final String value;
+  private final int precision;
+  private final int scale;
 
-  DecimalNode(Double value) {
+  DecimalNode(String value, int precision, int scale) {
     this.value = value;
+    this.precision = precision;
+    this.scale = scale;
   }
 
   @Override
   public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-    GandivaTypes.D
-    doubleBuilder.setValue(value.doubleValue());
+    GandivaTypes.DecimalNode.Builder decimalNode = GandivaTypes.DecimalNode.newBuilder();
+    decimalNode.setValue(ByteString.copyFrom(value.getBytes(charset)));
 
     GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-    builder.setDoubleNode(doubleBuilder.build());
+    builder.setDecimalNode(decimalNode.build());
     return builder.build();
   }
 }

@@ -19,6 +19,7 @@
 
 #include <utility>
 
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/node.h"
 
@@ -49,8 +50,9 @@ NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string& value) {
   return std::make_shared<LiteralNode>(arrow::binary(), LiteralHolder(value), false);
 }
 
-static NodePtr MakeDecimalLiteral(const arrow::Decimal128Type& value) {
-  return std::make_shared<LiteralNode>(arrow::Decimal128Type(), LiteralHolder(value), false);
+NodePtr TreeExprBuilder::MakeDecimalLiteral(const DecimalLiteral& value) {
+  return std::make_shared<LiteralNode>(arrow::decimal(value.precision, value.scale),
+                                       LiteralHolder(value), false);
 }
 
 NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
@@ -96,6 +98,10 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::TIMESTAMP:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
+    case arrow::Type::DECIMAL: {
+      DecimalLiteral literal = {arrow::Decimal128(0, 0), 0, 0};
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder(literal), true);
+    }
     default:
       return nullptr;
   }

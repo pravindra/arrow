@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
+import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -39,63 +40,113 @@ import org.junit.Test;
 
 import com.google.common.collect.Lists;
 
-public class ProjectorDecimalTest extends BaseEvaluatorTest {
+public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.BaseEvaluatorTest {
 
   @Test
   public void test_add() throws GandivaException {
-    {
-      int precision = 38;
-      int scale = 6;
-      ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
-      Field a = Field.nullable("a", decimal);
-      Field b = Field.nullable("b", decimal);
-      List<Field> args = Lists.newArrayList(a, b);
+    int precision = 2;
+    int scale = 0;
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
+    Field a = Field.nullable("a", decimal);
+    Field b = Field.nullable("b", decimal);
+    List<Field> args = Lists.newArrayList(a, b);
 
-      ArrowType.Decimal outputType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
-              .OperationType.ADD, decimal, decimal);
-      Field retType = Field.nullable("c", outputType);
-      ExpressionTree root = TreeBuilder.makeExpression("add", args, retType);
+    ArrowType.Decimal outputType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, decimal, decimal);
+    Field retType = Field.nullable("c", outputType);
+    ExpressionTree root = TreeBuilder.makeExpression("add", args, retType);
 
-      List<ExpressionTree> exprs = Lists.newArrayList(root);
+    List<ExpressionTree> exprs = Lists.newArrayList(root);
 
-      Schema schema = new Schema(args);
-      Projector eval = Projector.make(schema, exprs);
+    Schema schema = new Schema(args);
+    Projector eval = Projector.make(schema, exprs);
 
-      int numRows = 4;
-      byte[] validity = new byte[]{(byte) 255};
-      int[] aValues = new int[]{1, 2, 3, 4};
-      int[] bValues = new int[]{16, 15, 14, 13};
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 255};
+    int[] aValues = new int[]{1, 2, 3, 4};
+    int[] bValues = new int[]{16, 15, 14, 13};
 
-      DecimalVector valuesa = decimalVector(aValues, precision, scale);
-      DecimalVector valuesb = decimalVector(bValues, precision, scale);
-      ArrowRecordBatch batch =
-              new ArrowRecordBatch(
-                      numRows,
-                      Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
-                      Lists.newArrayList(valuesa.getValidityBuffer(), valuesa.getDataBuffer(),
-                                         valuesb.getValidityBuffer(), valuesb.getDataBuffer()));
+    DecimalVector valuesa = decimalVector(aValues, precision, scale);
+    DecimalVector valuesb = decimalVector(bValues, precision, scale);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
+                    Lists.newArrayList(valuesa.getValidityBuffer(), valuesa.getDataBuffer(),
+                            valuesb.getValidityBuffer(), valuesb.getDataBuffer()));
 
-      DecimalVector outVector = new DecimalVector("decimal_output", allocator, outputType.getPrecision(),
-              outputType.getScale());
-      outVector.allocateNew(numRows);
+    DecimalVector outVector = new DecimalVector("decimal_output", allocator, outputType.getPrecision(),
+            outputType.getScale());
+    outVector.allocateNew(numRows);
 
-      List<ValueVector> output = new ArrayList<ValueVector>();
-      output.add(outVector);
-      eval.evaluate(batch, output);
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
 
-      int oscale = outputType.getScale();
-      BigDecimal[] expOutput = new BigDecimal[] {BigDecimal.valueOf(17, oscale), BigDecimal.valueOf(17, oscale),
-              BigDecimal.valueOf(17, oscale), BigDecimal.valueOf(17, oscale)};
+    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(17), BigDecimal.valueOf(17),
+            BigDecimal.valueOf(17), BigDecimal.valueOf(17)};
 
-      for (int i = 0; i < 4; i++) {
-        assertFalse(outVector.isNull(i));
-        assertTrue(expOutput[i].compareTo(outVector.getObject(i)) == 0);
-      }
-
-      // free buffers
-      releaseRecordBatch(batch);
-      releaseValueVectors(output);
-      eval.close();
+    for (int i = 0; i < 4; i++) {
+      assertFalse(outVector.isNull(i));
+      assertTrue(expOutput[i].compareTo(outVector.getObject(i)) == 0);
     }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
+  public void test_add_literal() throws GandivaException {
+    int precision = 2;
+    int scale = 0;
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
+    Field a = Field.nullable("a", decimal);
+
+    ArrowType.Decimal outputType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+            .OperationType.ADD, decimal, decimal);
+    Field retType = Field.nullable("c", outputType);
+    TreeNode field = TreeBuilder.makeField(a);
+    TreeNode literal = TreeBuilder.makeDecimalLiteral("16", 2, 0);
+    List<TreeNode> args = Lists.newArrayList(field, literal);
+    TreeNode root = TreeBuilder.makeFunction("add", args, outputType);
+    ExpressionTree tree = TreeBuilder.makeExpression(root, retType);
+
+    List<ExpressionTree> exprs = Lists.newArrayList(tree);
+
+    Schema schema = new Schema(Lists.newArrayList(a));
+    Projector eval = Projector.make(schema, exprs);
+
+    int numRows = 4;
+    int[] aValues = new int[]{1, 2, 3, 4};
+
+    DecimalVector valuesa = decimalVector(aValues, precision, scale);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(new ArrowFieldNode(numRows, 0)),
+                    Lists.newArrayList(valuesa.getValidityBuffer(), valuesa.getDataBuffer()));
+
+    DecimalVector outVector = new DecimalVector("decimal_output", allocator, outputType.getPrecision(),
+            outputType.getScale());
+    outVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+
+    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(17), BigDecimal.valueOf(18),
+            BigDecimal.valueOf(19), BigDecimal.valueOf(20)};
+
+    for (int i = 0; i < 4; i++) {
+      assertFalse(outVector.isNull(i));
+      assertTrue(expOutput[i].compareTo(outVector.getObject(i)) == 0);
+    }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
   }
 }
