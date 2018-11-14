@@ -102,13 +102,14 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     int precision = 2;
     int scale = 0;
     ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
+    ArrowType.Decimal literalType = new ArrowType.Decimal(2, 1);
     Field a = Field.nullable("a", decimal);
 
     ArrowType.Decimal outputType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
-            .OperationType.ADD, decimal, decimal);
+            .OperationType.ADD, decimal, literalType);
     Field retType = Field.nullable("c", outputType);
     TreeNode field = TreeBuilder.makeField(a);
-    TreeNode literal = TreeBuilder.makeDecimalLiteral("16", 2, 0);
+    TreeNode literal = TreeBuilder.makeDecimalLiteral("6", 2, 1);
     List<TreeNode> args = Lists.newArrayList(field, literal);
     TreeNode root = TreeBuilder.makeFunction("add", args, outputType);
     ExpressionTree tree = TreeBuilder.makeExpression(root, retType);
@@ -136,8 +137,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     output.add(outVector);
     eval.evaluate(batch, output);
 
-    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(17), BigDecimal.valueOf(18),
-            BigDecimal.valueOf(19), BigDecimal.valueOf(20)};
+    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(1.6), BigDecimal.valueOf(2.6),
+            BigDecimal.valueOf(3.6), BigDecimal.valueOf(4.6)};
 
     for (int i = 0; i < 4; i++) {
       assertFalse(outVector.isNull(i));

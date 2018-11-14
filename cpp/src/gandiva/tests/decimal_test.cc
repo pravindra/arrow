@@ -142,7 +142,7 @@ TEST_F(TestDecimal, TestLiteral) {
 
   // build expression : a + b + c
   auto node_a = TreeExprBuilder::MakeField(field_a);
-  DecimalLiteral literal = {arrow::Decimal128("6"), 1, 0};
+  DecimalLiteral literal = {arrow::Decimal128("6"), 2, 1};
   auto node_b = TreeExprBuilder::MakeDecimalLiteral(literal);
   auto add2 = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, add2_type);
   auto expr = TreeExprBuilder::MakeExpression(add2, res);
@@ -161,9 +161,9 @@ TEST_F(TestDecimal, TestLiteral) {
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
 
-  auto expected =
-      MakeArrowArrayDecimal(add2_type, MakeDecimalVector({"7", "8", "9", "10"}, scale),
-                            {false, true, true, true});
+  auto expected = MakeArrowArrayDecimal(
+      add2_type, MakeDecimalVector({"1.6", "2.6", "3.6", "4.6"}, scale),
+      {false, true, true, true});
 
   // Evaluate expression
   arrow::ArrayVector outputs;

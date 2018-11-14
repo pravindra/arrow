@@ -45,6 +45,8 @@ class DecimalNode implements TreeNode {
   public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
     GandivaTypes.DecimalNode.Builder decimalNode = GandivaTypes.DecimalNode.newBuilder();
     decimalNode.setValue(ByteString.copyFrom(value.getBytes(charset)));
+    decimalNode.setPrecision(precision);
+    decimalNode.setScale(scale);
 
     GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
     builder.setDecimalNode(decimalNode.build());
