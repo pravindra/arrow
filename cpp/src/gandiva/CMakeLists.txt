@@ -109,8 +109,8 @@ install(FILES
   arrow.h
   condition.h
   configuration.h
-  decimal_full.h
-  decimal_type_sql.h
+  decimal_128full.h
+  decimal_type_util.h
   expression.h
   expression_registry.h
   filter.h

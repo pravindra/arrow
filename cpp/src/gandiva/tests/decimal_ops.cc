@@ -21,8 +21,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
-#include "gandiva/decimal_full.h"
-#include "gandiva/decimal_type_sql.h"
+#include "gandiva/decimal_128full.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -35,6 +35,11 @@ namespace gandiva {
   EXPECT_TRUE((expected).Equals(actual))                  \
       << (x).ToString() << " + " << (y).ToString()        \
       << " expected : " << (expected).ToString() << " actual : " << (actual).ToString();
+
+Decimal128Full make_decimal_literal(const char* value, int precision, int scale) {
+  std::string value_string = std::string(value);
+  return Decimal128Full(value_string, precision, scale);
+}
 
 class TestDecimalOps : public ::testing::Test {
  public:
@@ -51,8 +56,12 @@ class TestDecimalOps : public ::testing::Test {
 ArrayPtr TestDecimalOps::MakeDecimalVector(const Decimal128Full& in) {
   std::vector<arrow::Decimal128> ret;
 
+  Decimal128 decimal_value;
+  auto status = Decimal128::FromString(in.value(), &decimal_value);
+  EXPECT_TRUE(status.ok()) << status.message();
+
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(in.precision(), in.scale());
-  return MakeArrowArrayDecimal(decimal_type, {in.value()}, {true});
+  return MakeArrowArrayDecimal(decimal_type, {decimal_value}, {true});
 }
 
 void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full& y,
@@ -94,7 +103,8 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
   const Decimal128 out_value(out_array->GetValue(0));
 
   auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
-  Decimal128Full actual{out_value.ToString(0), dtype->precision(), dtype->scale()};
+  std::string value_string = out_value.ToString(0);
+  Decimal128Full actual{value_string, dtype->precision(), dtype->scale()};
 
   EXPECT_DECIMAL_SUM_EQUALS(x, y, expected, actual);
 }
@@ -102,110 +112,109 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
 TEST_F(TestDecimalOps, TestAdd) {
 #if 0
   // fast-path
-  AddAndVerify(Decimal128Full{"201", 30, 3},   // x
-               Decimal128Full{"301", 30, 3},   // y
-               Decimal128Full{"502", 31, 3});  // expected
+  AddAndVerify(make_decimal_literal("201", 30, 3),   // x
+               make_decimal_literal("301", 30, 3),   // y
+               make_decimal_literal("502", 31, 3));  // expected
 
-  AddAndVerify(Decimal128Full{"201", 30, 3},    // x
-               Decimal128Full{"301", 30, 2},    // y
-               Decimal128Full{"3211", 32, 3});  // expected
+  AddAndVerify(make_decimal_literal("201", 30, 3),    // x
+               make_decimal_literal("301", 30, 2),    // y
+               make_decimal_literal("3211", 32, 3));  // expected
 
-  AddAndVerify(Decimal128Full{"201", 30, 3},    // x
-               Decimal128Full{"301", 30, 4},    // y
-               Decimal128Full{"2311", 32, 4});  // expected
+  AddAndVerify(make_decimal_literal("201", 30, 3),    // x
+               make_decimal_literal("301", 30, 4),    // y
+               make_decimal_literal("2311", 32, 4));  // expected
 
   // max precision, but no overflow
-  AddAndVerify(Decimal128Full{"201", 38, 3},   // x
-               Decimal128Full{"301", 38, 3},   // y
-               Decimal128Full{"502", 38, 3});  // expected
+  AddAndVerify(make_decimal_literal("201", 38, 3),   // x
+               make_decimal_literal("301", 38, 3),   // y
+               make_decimal_literal("502", 38, 3));  // expected
 
-  AddAndVerify(Decimal128Full{"201", 38, 3},    // x
-               Decimal128Full{"301", 38, 2},    // y
-               Decimal128Full{"3211", 38, 3});  // expected
+  AddAndVerify(make_decimal_literal("201", 38, 3),    // x
+               make_decimal_literal("301", 38, 2),    // y
+               make_decimal_literal("3211", 38, 3));  // expected
 
-  AddAndVerify(Decimal128Full{"201", 38, 3},    // x
-               Decimal128Full{"301", 38, 4},    // y
-               Decimal128Full{"2311", 38, 4});  // expected
+  AddAndVerify(make_decimal_literal("201", 38, 3),    // x
+               make_decimal_literal("301", 38, 4),    // y
+               make_decimal_literal("2311", 38, 4));  // expected
 #endif
 
-  AddAndVerify(Decimal128Full{"201", 38, 3},      // x
-               Decimal128Full{"301", 38, 7},      // y
-               Decimal128Full{"201030", 38, 6});  // expected
+  AddAndVerify(make_decimal_literal("201", 38, 3),      // x
+               make_decimal_literal("301", 38, 7),      // y
+               make_decimal_literal("201030", 38, 6));  // expected
 
 #if 0
-  AddAndVerify(Decimal128Full{"1201", 38, 3},   // x
-               Decimal128Full{"1801", 38, 3},   // y
-               Decimal128Full{"3002", 38, 3});  // expected (carry-over from fractional)
+  AddAndVerify(make_decimal_literal("1201", 38, 3),   // x
+               make_decimal_literal("1801", 38, 3),   // y
+               make_decimal_literal("3002", 38, 3));  // expected (carry-over from fractional)
 
   // max precision
-  AddAndVerify(Decimal128Full{"09999999999999999999999999999999000000", 38, 5},  // x
-               Decimal128Full{"100", 38, 7},                                     // y
-               Decimal128Full{"99999999999999999999999999999990000010", 38, 6});
+  AddAndVerify(make_decimal_literal("09999999999999999999999999999999000000", 38, 5),  // x
+               make_decimal_literal("100", 38, 7),                                     // y
+               make_decimal_literal("99999999999999999999999999999990000010", 38, 6));
 
-  AddAndVerify(Decimal128Full{"-09999999999999999999999999999999000000", 38, 5},  // x
-               Decimal128Full{"100", 38, 7},                                      // y
-               Decimal128Full{"-99999999999999999999999999999989999990", 38, 6});
+  AddAndVerify(make_decimal_literal("-09999999999999999999999999999999000000", 38, 5),  // x
+               make_decimal_literal("100", 38, 7),                                      // y
+               make_decimal_literal("-99999999999999999999999999999989999990", 38, 6));
 
-  AddAndVerify(Decimal128Full{"09999999999999999999999999999999000000", 38, 5},  // x
-               Decimal128Full{"-100", 38, 7},                                    // y
-               Decimal128Full{"99999999999999999999999999999989999990", 38, 6});
+  AddAndVerify(make_decimal_literal("09999999999999999999999999999999000000", 38, 5),  // x
+               make_decimal_literal("-100", 38, 7),                                    // y
+               make_decimal_literal("99999999999999999999999999999989999990", 38, 6));
 
-  AddAndVerify(Decimal128Full{"-09999999999999999999999999999999000000", 38, 5},  // x
-               Decimal128Full{"-100", 38, 7},                                     // y
-               Decimal128Full{"-99999999999999999999999999999990000010", 38, 6});
+  AddAndVerify(make_decimal_literal("-09999999999999999999999999999999000000", 38, 5),  // x
+               make_decimal_literal("-100", 38, 7),                                     // y
+               make_decimal_literal("-99999999999999999999999999999990000010", 38, 6));
 
-  AddAndVerify(Decimal128Full{"09999999999999999999999999999999999999", 38, 6},  // x
-               Decimal128Full{"89999999999999999999999999999999999999", 38, 7},  // y
-               Decimal128Full{"18999999999999999999999999999999999999", 38, 6});
+  AddAndVerify(make_decimal_literal("09999999999999999999999999999999999999", 38, 6),  // x
+               make_decimal_literal("89999999999999999999999999999999999999", 38, 7),  // y
+               make_decimal_literal("18999999999999999999999999999999999999", 38, 6));
 
   // Both -ve
-  AddAndVerify(Decimal128Full{"-201", 30, 3},    // x
-               Decimal128Full{"-301", 30, 2},    // y
-               Decimal128Full{"-3211", 32, 3});  // expected
+  AddAndVerify(make_decimal_literal("-201", 30, 3),    // x
+               make_decimal_literal("-301", 30, 2),    // y
+               make_decimal_literal("-3211", 32, 3));  // expected
 
-  AddAndVerify(Decimal128Full{"-201", 38, 3},    // x
-               Decimal128Full{"-301", 38, 4},    // y
-               Decimal128Full{"-2311", 38, 4});  // expected
+  AddAndVerify(make_decimal_literal("-201", 38, 3),    // x
+               make_decimal_literal("-301", 38, 4),    // y
+               make_decimal_literal("-2311", 38, 4));  // expected
 
   // Mix of +ve and -ve
-  AddAndVerify(Decimal128Full{"-201", 30, 3},   // x
-               Decimal128Full{"301", 30, 2},    // y
-               Decimal128Full{"2809", 32, 3});  // expected
+  AddAndVerify(make_decimal_literal("-201", 30, 3),   // x
+               make_decimal_literal("301", 30, 2),    // y
+               make_decimal_literal("2809", 32, 3));  // expected
 
-  AddAndVerify(Decimal128Full{"-201", 38, 3},    // x
-               Decimal128Full{"301", 38, 4},     // y
-               Decimal128Full{"-1709", 38, 4});  // expected
+  AddAndVerify(make_decimal_literal("-201", 38, 3),    // x
+               make_decimal_literal("301", 38, 4),     // y
+               make_decimal_literal("-1709", 38, 4));  // expected
 
-  AddAndVerify(Decimal128Full{"201", 38, 3},      // x
-               Decimal128Full{"-301", 38, 7},     // y
-               Decimal128Full{"200970", 38, 6});  // expected
+  AddAndVerify(make_decimal_literal("201", 38, 3),      // x
+               make_decimal_literal("-301", 38, 7),     // y
+               make_decimal_literal("200970", 38, 6));  // expected
 
-  AddAndVerify(Decimal128Full{"-1901", 38, 4},  // x
-               Decimal128Full{"1801", 38, 4},   // y
-               Decimal128Full{"-100", 38, 4});  // expected
+  AddAndVerify(make_decimal_literal("-1901", 38, 4),  // x
+               make_decimal_literal("1801", 38, 4),   // y
+               make_decimal_literal("-100", 38, 4));  // expected
 
-  AddAndVerify(Decimal128Full{"1801", 38, 4},   // x
-               Decimal128Full{"-1901", 38, 4},  // y
-               Decimal128Full{"-100", 38, 4});  // expected
+  AddAndVerify(make_decimal_literal("1801", 38, 4),   // x
+               make_decimal_literal("-1901", 38, 4),  // y
+               make_decimal_literal("-100", 38, 4));  // expected
 
   // rounding +ve
-  AddAndVerify(Decimal128Full{"1000999", 38, 6},   // x
-               Decimal128Full{"10000999", 38, 7},  // y
-               Decimal128Full{"2001099", 38, 6});
+  AddAndVerify(make_decimal_literal("1000999", 38, 6),   // x
+               make_decimal_literal("10000999", 38, 7),  // y
+               make_decimal_literal("2001099", 38, 6));
 
-  AddAndVerify(Decimal128Full{"1000999", 38, 6},   // x
-               Decimal128Full{"10000992", 38, 7},  // y
-               Decimal128Full{"2001098", 38, 6});
+  AddAndVerify(make_decimal_literal("1000999", 38, 6),   // x
+               make_decimal_literal("10000992", 38, 7),  // y
+               make_decimal_literal("2001098", 38, 6));
 
   // rounding -ve
-  AddAndVerify(Decimal128Full{"-1000999", 38, 6},   // x
-               Decimal128Full{"-10000999", 38, 7},  // y
-               Decimal128Full{"-2001099", 38, 6});
+  AddAndVerify(make_decimal_literal("-1000999", 38, 6),   // x
+               make_decimal_literal("-10000999", 38, 7),  // y
+               make_decimal_literal("-2001099", 38, 6));
 
-  AddAndVerify(Decimal128Full{"-1000999", 38, 6},   // x
-               Decimal128Full{"-10000992", 38, 7},  // y
-               Decimal128Full{"-2001098", 38, 6});
+  AddAndVerify(make_decimal_literal("-1000999", 38, 6),   // x
+               make_decimal_literal("-10000992", 38, 7),  // y
+               make_decimal_literal("-2001098", 38, 6));
 #endif
 }
-
 }  // namespace gandiva

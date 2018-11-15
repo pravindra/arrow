@@ -25,32 +25,9 @@
 #include <memory>
 #include <string>
 
-#include "arrow/type.h"
-#include "arrow/util/decimal.h"
 #include "gandiva/arrow.h"
 
 namespace gandiva {
-
-struct DecimalLiteral {
-  arrow::Decimal128 value;
-  int32_t precision;
-  int32_t scale;
-
-  bool Equals(const DecimalLiteral& other) const {
-    return precision == other.precision && scale == other.scale && value == other.value;
-  }
-
-  std::string ToString() const {
-    return "(" + value.ToString(0) + "," + std::to_string(precision) + "," +
-           std::to_string(scale) + ")";
-  }
-
-  friend std::ostream& operator<<(std::ostream& os, const DecimalLiteral& dec) {
-    os << "(" << dec.value.ToString(0) << "," << std::to_string(dec.precision) << ","
-       << std::to_string(dec.scale) << ")";
-    return os;
-  }
-};
 
 /// @brief Handles conversion of scale/precision for operations on decimal types.
 /// TODO : do validations for all of these.

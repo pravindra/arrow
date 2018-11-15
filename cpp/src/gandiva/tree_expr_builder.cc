@@ -50,8 +50,8 @@ NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string& value) {
   return std::make_shared<LiteralNode>(arrow::binary(), LiteralHolder(value), false);
 }
 
-NodePtr TreeExprBuilder::MakeDecimalLiteral(const DecimalLiteral& value) {
-  return std::make_shared<LiteralNode>(arrow::decimal(value.precision, value.scale),
+NodePtr TreeExprBuilder::MakeDecimalLiteral(const Decimal128Full& value) {
+  return std::make_shared<LiteralNode>(arrow::decimal(value.precision(), value.scale()),
                                        LiteralHolder(value), false);
 }
 
@@ -99,7 +99,8 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
     case arrow::Type::TIMESTAMP:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::DECIMAL: {
-      DecimalLiteral literal = {arrow::Decimal128(0, 0), 0, 0};
+      static std::string zero = std::string("0");
+      Decimal128Full literal(zero, 0, 0);
       return std::make_shared<LiteralNode>(data_type, LiteralHolder(literal), true);
     }
     default:

@@ -142,7 +142,8 @@ TEST_F(TestDecimal, TestLiteral) {
 
   // build expression : a + b + c
   auto node_a = TreeExprBuilder::MakeField(field_a);
-  DecimalLiteral literal = {arrow::Decimal128("6"), 2, 1};
+  static std::string decimal_point_six = "6";
+  Decimal128Full literal(decimal_point_six, 2, 1);
   auto node_b = TreeExprBuilder::MakeDecimalLiteral(literal);
   auto add2 = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, add2_type);
   auto expr = TreeExprBuilder::MakeExpression(add2, res);

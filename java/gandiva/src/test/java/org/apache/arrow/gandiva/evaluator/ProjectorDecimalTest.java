@@ -44,8 +44,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void test_add() throws GandivaException {
-    int precision = 2;
-    int scale = 0;
+    int precision = 38;
+    int scale = 8;
     ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
     Field a = Field.nullable("a", decimal);
     Field b = Field.nullable("b", decimal);
@@ -63,8 +63,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
-    int[] aValues = new int[]{1, 2, 3, 4};
-    int[] bValues = new int[]{16, 15, 14, 13};
+    String[] aValues = new String[]{"1.12345678","2.12345678","3.12345678","4.12345678"};
+    String[] bValues = new String[]{"2.12345678","3.12345678","4.12345678","5.12345678"};
 
     DecimalVector valuesa = decimalVector(aValues, precision, scale);
     DecimalVector valuesb = decimalVector(bValues, precision, scale);
@@ -83,12 +83,16 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     output.add(outVector);
     eval.evaluate(batch, output);
 
-    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(17), BigDecimal.valueOf(17),
-            BigDecimal.valueOf(17), BigDecimal.valueOf(17)};
+    // should have scaled down.
+    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(3.2469135),
+                                              BigDecimal.valueOf(5.2469135),
+                                              BigDecimal.valueOf(7.2469135),
+                                              BigDecimal.valueOf(9.2469135)};
 
     for (int i = 0; i < 4; i++) {
       assertFalse(outVector.isNull(i));
-      assertTrue(expOutput[i].compareTo(outVector.getObject(i)) == 0);
+      assertTrue("index : " + i + " failed compare", expOutput[i].compareTo(outVector.getObject(i)
+      ) == 0);
     }
 
     // free buffers
@@ -120,7 +124,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     Projector eval = Projector.make(schema, exprs);
 
     int numRows = 4;
-    int[] aValues = new int[]{1, 2, 3, 4};
+    String[] aValues = new String[]{"1", "2", "3", "4"};
 
     DecimalVector valuesa = decimalVector(aValues, precision, scale);
     ArrowRecordBatch batch =

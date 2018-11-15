@@ -30,7 +30,6 @@ import com.google.protobuf.ByteString;
  * Used in the expression (x + 5.0)
  */
 class DecimalNode implements TreeNode {
-  private static final Charset charset = Charset.forName("UTF-8");
   private final String value;
   private final int precision;
   private final int scale;
@@ -44,7 +43,7 @@ class DecimalNode implements TreeNode {
   @Override
   public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
     GandivaTypes.DecimalNode.Builder decimalNode = GandivaTypes.DecimalNode.newBuilder();
-    decimalNode.setValue(ByteString.copyFrom(value.getBytes(charset)));
+    decimalNode.setValue(value);
     decimalNode.setPrecision(precision);
     decimalNode.setScale(scale);
 

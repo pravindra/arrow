@@ -147,7 +147,7 @@ message BinaryNode {
 }
 
 message DecimalNode {
-  optional bytes value = 1;
+  optional string value = 1;
   optional int32 precision = 2;
   optional int32 scale = 3;
 }
