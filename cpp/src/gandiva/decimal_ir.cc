@@ -20,7 +20,7 @@
 
 #include "arrow/status.h"
 #include "gandiva/decimal_ir.h"
-#include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_type_sql.h"
 
 // Algorithms adapted from Apache Impala
 // The equivalent C++ code (with int64_t) is present in decimal_sample.cc
@@ -46,7 +46,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
   // populate vector : [ 1, 10, 100, 1000, ..]
   std::string value = "1";
   std::vector<llvm::Constant*> scale_multipliers;
-  for (int i = 0; i < DecimalTypeUtil::kMaxPrecision + 1; ++i) {
+  for (int i = 0; i < DecimalTypeSql::kMaxPrecision + 1; ++i) {
     auto multiplier =
         llvm::ConstantInt::get(llvm::Type::getInt128Ty(*engine->context()), value, 10);
     scale_multipliers.push_back(multiplier);
@@ -54,7 +54,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
   }
 
   auto array_type =
-      llvm::ArrayType::get(types->i128_type(), DecimalTypeUtil::kMaxPrecision + 1);
+      llvm::ArrayType::get(types->i128_type(), DecimalTypeSql::kMaxPrecision + 1);
   auto initializer = llvm::ConstantArray::get(
       array_type, llvm::ArrayRef<llvm::Constant*>(scale_multipliers));
 
@@ -248,7 +248,7 @@ llvm::Value* DecimalIR::AddLarge(llvm::Value* x_value, llvm::Value* x_precision,
 }
 
 /// The output scale/precision cannot be arbitary values. The algo here depends on them
-/// to be the same as computed in DecimalTypeUtil.
+/// to be the same as computed in DecimalTypeSql.
 /// TODO: enforce this.
 Status DecimalIR::BuildAdd() {
   // Create fn prototype :
@@ -317,7 +317,7 @@ Status DecimalIR::BuildAdd() {
   //     return ret.value;
   // }
   llvm::Value* lt_max_precision = ir_builder()->CreateICmpSLT(
-      out_precision, types()->i32_constant(DecimalTypeUtil::kMaxPrecision));
+      out_precision, types()->i32_constant(DecimalTypeSql::kMaxPrecision));
   auto then_lambda = [&] {
     // fast-path add
     return AddFastPath(x_value, x_scale, y_value, y_scale);

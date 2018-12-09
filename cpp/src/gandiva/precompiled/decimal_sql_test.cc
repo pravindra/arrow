@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_type_sql.h"
 #include "gandiva/precompiled/decimal_sql.h"
 #include "gandiva/precompiled/types.h"
 
@@ -43,7 +43,7 @@ void TestDecimalSql::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
 
   Decimal128TypePtr out_type;
   auto status =
-      DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd, {t1, t2}, &out_type);
+      DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd, {t1, t2}, &out_type);
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto out_value = decimalsql::Add(x, y, out_type->precision(), out_type->scale());
@@ -66,7 +66,6 @@ TEST_F(TestDecimalSql, Add) {
   AddAndVerify(Decimal128Full{"-201", 30, 3},    // x
                Decimal128Full{"-301", 30, 2},    // y
                Decimal128Full{"-3211", 32, 3});  // expected
-
 }
 
 }  // namespace gandiva

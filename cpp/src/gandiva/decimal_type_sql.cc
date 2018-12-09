@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_type_sql.h"
 
 namespace gandiva {
 
-constexpr int32_t DecimalTypeUtil::kMaxDecimal32Precision;
-constexpr int32_t DecimalTypeUtil::kMaxDecimal64Precision;
-constexpr int32_t DecimalTypeUtil::kMaxPrecision;
+constexpr int32_t DecimalTypeSql::kMaxDecimal32Precision;
+constexpr int32_t DecimalTypeSql::kMaxDecimal64Precision;
+constexpr int32_t DecimalTypeSql::kMaxPrecision;
 
-constexpr int32_t DecimalTypeUtil::kMaxScale;
-constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
+constexpr int32_t DecimalTypeSql::kMaxScale;
+constexpr int32_t DecimalTypeSql::kMinAdjustedScale;
 
 }  // namespace gandiva

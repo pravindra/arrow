@@ -17,8 +17,8 @@
 
 // Adapted from Apache Impala
 
-#ifndef GANDIVA_DECIMAL_TYPE_UTIL_H
-#define GANDIVA_DECIMAL_TYPE_UTIL_H
+#ifndef GANDIVA_DECIMAL_TYPE_SQL_H
+#define GANDIVA_DECIMAL_TYPE_SQL_H
 
 #include <algorithm>
 #include <memory>
@@ -30,7 +30,7 @@ namespace gandiva {
 
 /// @brief Handles conversion of scale/precision for operations on decimal types.
 /// TODO : do validations for all of these.
-class DecimalTypeUtil {
+class DecimalTypeSql {
  public:
   enum Op {
     kOpAdd,
@@ -68,13 +68,13 @@ class DecimalTypeUtil {
   static Decimal128TypePtr MakeAdjustedType(int32_t precision, int32_t scale);
 };
 
-inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t scale) {
+inline Decimal128TypePtr DecimalTypeSql::MakeType(int32_t precision, int32_t scale) {
   return std::make_shared<arrow::Decimal128Type>(precision, scale);
 }
 
 // Reduce the scale if possible so that precision stays <= kMaxPrecision
-inline Decimal128TypePtr DecimalTypeUtil::MakeAdjustedType(int32_t precision,
-                                                           int32_t scale) {
+inline Decimal128TypePtr DecimalTypeSql::MakeAdjustedType(int32_t precision,
+                                                          int32_t scale) {
   if (precision > kMaxPrecision) {
     int32_t min_scale = std::min(scale, kMinAdjustedScale);
     int32_t delta = precision - kMaxPrecision;
@@ -85,8 +85,8 @@ inline Decimal128TypePtr DecimalTypeUtil::MakeAdjustedType(int32_t precision,
 }
 
 // Implementation of decimal rules.
-inline Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_types,
-                                             Decimal128TypePtr* out_type) {
+inline Status DecimalTypeSql::GetResultType(Op op, const Decimal128TypeVector& in_types,
+                                            Decimal128TypePtr* out_type) {
   // TODO : validations
   *out_type = NULL;
   auto t1 = in_types[0];
@@ -127,4 +127,4 @@ inline Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& 
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_DECIMAL_TYPE_UTIL_H
+#endif  // GANDIVA_DECIMAL_TYPE_SQL_H

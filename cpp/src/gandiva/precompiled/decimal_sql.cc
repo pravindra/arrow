@@ -21,7 +21,7 @@
 
 #include <algorithm>
 
-#include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_type_sql.h"
 #include "gandiva/logging.h"
 
 namespace gandiva {
@@ -193,7 +193,7 @@ inline int32_t MinLeadingZeros(const Decimal128Full& x, const Decimal128Full& y)
 
 Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
                int32_t out_scale) {
-  if (out_precision < DecimalTypeUtil::kMaxPrecision) {
+  if (out_precision < DecimalTypeSql::kMaxPrecision) {
     // fast-path add
     return AddFastPath(x, y, out_scale);
   } else {

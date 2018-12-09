@@ -22,7 +22,7 @@
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
 
-#include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_type_sql.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -71,12 +71,12 @@ TEST_F(TestDecimal, TestSimple) {
   auto schema = arrow::schema({field_a, field_b, field_c});
 
   Decimal128TypePtr add2_type;
-  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
-                                               {decimal_type, decimal_type}, &add2_type);
+  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
+                                              {decimal_type, decimal_type}, &add2_type);
 
   Decimal128TypePtr output_type;
-  status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
-                                          {add2_type, decimal_type}, &output_type);
+  status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
+                                         {add2_type, decimal_type}, &output_type);
 
   // output fields
   auto res = field("res0", output_type);
