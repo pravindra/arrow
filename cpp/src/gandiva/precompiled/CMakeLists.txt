@@ -38,7 +38,10 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   add_custom_command(
     OUTPUT ${BC_FILE}
     COMMAND ${CLANG_EXECUTABLE}
-            -std=c++11 -emit-llvm -DNDEBUG -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -std=c++11 -emit-llvm
+            -DNDEBUG # DCHECK macros not implemented in precompiled code
+            -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
+            -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
             -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})

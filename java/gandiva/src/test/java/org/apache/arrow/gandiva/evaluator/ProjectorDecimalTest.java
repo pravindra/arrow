@@ -45,7 +45,7 @@ public class ProjectorDecimalTest extends BaseEvaluatorTest {
   public void test_add() throws GandivaException {
     {
       int precision = 38;
-      int scale = 8;
+      int scale = 6;
       ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
       Field a = Field.nullable("a", decimal);
       Field b = Field.nullable("b", decimal);
@@ -83,8 +83,9 @@ public class ProjectorDecimalTest extends BaseEvaluatorTest {
       output.add(outVector);
       eval.evaluate(batch, output);
 
-      BigDecimal[] expOutput = new BigDecimal[] {BigDecimal.valueOf(17), BigDecimal.valueOf(17),
-              BigDecimal.valueOf(17), BigDecimal.valueOf(17)};
+      int oscale = outputType.getScale();
+      BigDecimal[] expOutput = new BigDecimal[] {BigDecimal.valueOf(17, oscale), BigDecimal.valueOf(17, oscale),
+              BigDecimal.valueOf(17, oscale), BigDecimal.valueOf(17, oscale)};
 
       for (int i = 0; i < 4; i++) {
         assertFalse(outVector.isNull(i));

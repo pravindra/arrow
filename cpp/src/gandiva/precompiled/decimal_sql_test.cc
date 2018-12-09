@@ -66,7 +66,6 @@ TEST_F(TestDecimalSql, Add) {
   AddAndVerify(Decimal128Full{"-201", 30, 3},    // x
                Decimal128Full{"-301", 30, 2},    // y
                Decimal128Full{"-3211", 32, 3});  // expected
-
 }
 
 }  // namespace gandiva
