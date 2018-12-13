@@ -55,6 +55,12 @@ class Decimal128Full {
 
   const arrow::Decimal128& value() const { return value_; }
 
+  friend std::ostream& operator<<(std::ostream& os, const Decimal128Full& dec) {
+    os << dec.value().ToString(0) << "," << std::to_string(dec.precision()) << ","
+       << std::to_string(dec.scale());
+    return os;
+  }
+
  private:
   Decimal128 value_;
 

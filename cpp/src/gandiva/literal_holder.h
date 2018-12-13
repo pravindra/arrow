@@ -23,7 +23,7 @@
 #include <boost/variant.hpp>
 
 #include <arrow/type.h>
-#include "gandiva/decimal_128full.h"
+#include "gandiva/decimal_full.h"
 
 namespace gandiva {
 

@@ -134,8 +134,8 @@ TEST_F(TestDecimal, TestLiteral) {
   });
 
   Decimal128TypePtr add2_type;
-  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
-                                               {decimal_type, decimal_type}, &add2_type);
+  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
+                                              {decimal_type, decimal_type}, &add2_type);
 
   // output fields
   auto res = field("res0", add2_type);

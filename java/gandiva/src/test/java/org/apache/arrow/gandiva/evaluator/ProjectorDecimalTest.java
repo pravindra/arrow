@@ -84,10 +84,10 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     eval.evaluate(batch, output);
 
     // should have scaled down.
-    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(3.2469135),
-                                              BigDecimal.valueOf(5.2469135),
-                                              BigDecimal.valueOf(7.2469135),
-                                              BigDecimal.valueOf(9.2469135)};
+    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(3.2469136),
+                                              BigDecimal.valueOf(5.2469136),
+                                              BigDecimal.valueOf(7.2469136),
+                                              BigDecimal.valueOf(9.2469136)};
 
     for (int i = 0; i < 4; i++) {
       assertFalse(outVector.isNull(i));

@@ -25,7 +25,7 @@
 
 #include "arrow/type.h"
 #include "gandiva/condition.h"
-#include "gandiva/decimal_128full.h"
+#include "gandiva/decimal_full.h"
 #include "gandiva/expression.h"
 
 namespace gandiva {
