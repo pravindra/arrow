@@ -21,9 +21,7 @@
 #define GANDIVA_DECIMAL_TYPE_SQL_H
 
 #include <algorithm>
-#include <iostream>
 #include <memory>
-#include <string>
 
 #include "gandiva/arrow.h"
 

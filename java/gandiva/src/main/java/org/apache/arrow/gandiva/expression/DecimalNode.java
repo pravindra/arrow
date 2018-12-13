@@ -26,7 +26,7 @@ import com.google.protobuf.ByteString;
 
 
 /**
- * Used to represent expression tree nodes representing double constants.
+ * Used to represent expression tree nodes representing decimal constants.
  * Used in the expression (x + 5.0)
  */
 class DecimalNode implements TreeNode {
