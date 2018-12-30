@@ -19,32 +19,40 @@
 #define GANDIVA_COMPILED_EXPR_H
 
 #include <llvm/IR/IRBuilder.h>
+#include <vector>
+#include "gandiva/selection_vector.h"
 #include "gandiva/value_validity_pair.h"
 
 namespace gandiva {
 
 using EvalFunc = int (*)(uint8_t** buffers, uint8_t** local_bitmaps,
-                         int64_t execution_ctx_ptr, int64_t record_count);
+                         uint8_t* selection_buffer, int64_t execution_ctx_ptr,
+                         int64_t record_count);
 
 /// \brief Tracks the compiled state for one expression.
 class CompiledExpr {
  public:
   CompiledExpr(ValueValidityPairPtr value_validity, FieldDescriptorPtr output,
-               llvm::Function* ir_function)
-      : value_validity_(value_validity),
-        output_(output),
-        ir_function_(ir_function),
-        jit_function_(NULL) {}
+               std::vector<llvm::Function*> ir_functions)
+      : value_validity_(value_validity), output_(output), ir_functions_(ir_functions) {}
 
   ValueValidityPairPtr value_validity() const { return value_validity_; }
 
   FieldDescriptorPtr output() const { return output_; }
 
-  llvm::Function* ir_function() const { return ir_function_; }
+  llvm::Function* ir_function(SelectionVector::SelectionVectorMode mode) const {
+    return ir_functions_.at(static_cast<int>(mode));
+  }
 
-  EvalFunc jit_function() const { return jit_function_; }
+  void add_jit_function(SelectionVector::SelectionVectorMode mode,
+                        EvalFunc jit_function) {
+    int index = static_cast<int>(mode);
+    jit_functions_.insert(jit_functions_.begin() + index, jit_function);
+  }
 
-  void set_jit_function(EvalFunc jit_function) { jit_function_ = jit_function; }
+  EvalFunc jit_function(SelectionVector::SelectionVectorMode mode) const {
+    return jit_functions_.at(static_cast<int>(mode));
+  }
 
  private:
   // value & validities for the expression tree (root)
@@ -53,11 +61,11 @@ class CompiledExpr {
   // output field
   FieldDescriptorPtr output_;
 
-  // IR function in the generated code
-  llvm::Function* ir_function_;
+  // IR functions for various modes in the generated code
+  std::vector<llvm::Function*> ir_functions_;
 
-  // JIT function in the generated code (set after the module is optimised and finalized)
-  EvalFunc jit_function_;
+  // JIT functions in the generated code (set after the module is optimised and finalized)
+  std::vector<EvalFunc> jit_functions_;
 };
 
 }  // namespace gandiva

@@ -33,6 +33,8 @@ class SelectionVector {
  public:
   virtual ~SelectionVector() = default;
 
+  enum class SelectionVectorMode : int { NONE = 0, INT16, INT32, INT64 };
+
   /// Get the value at a given index.
   virtual uint64_t GetIndex(int64_t index) const = 0;
 
@@ -54,6 +56,12 @@ class SelectionVector {
   /// Convert to arrow-array.
   virtual ArrayPtr ToArray() const = 0;
 
+  /// Mode of SelectionVector
+  virtual SelectionVectorMode GetMode() const = 0;
+
+  /// Intersect bitmaps
+  virtual void BitMapIntersection(uint8_t* temp_bitmap, uint8_t* dest_bitmap) const = 0;
+
   /// \brief populate selection vector for all the set bits in the bitmap.
   ///
   /// \param[in] bitmap the bitmap
@@ -62,6 +70,9 @@ class SelectionVector {
   ///            capacity in the bitmap, due to alignment/padding).
   Status PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap_size,
                             int64_t max_bitmap_index);
+
+  /// \brief make selection vector with mode NONE.
+  static Status GetNone(std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int16 type records.
   ///
@@ -77,6 +88,15 @@ class SelectionVector {
   ///              pool.
   static Status MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
+
+  /// \brief creates a selection vector with pre populated buffer.
+  ///
+  /// \param[in] num_slots size of the selection vector
+  /// \param[in] buffer pre-populated buffer
+  /// \param[out] selection_vector selection vector backed by 'buffer'
+  static Status MakeImmutableInt16(int64_t num_slots,
+                                   std::shared_ptr<arrow::Buffer> buffer,
+                                   std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int32 type records.
   ///
@@ -94,6 +114,15 @@ class SelectionVector {
   ///             pool.
   static Status MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
+
+  /// \brief creates a selection vector with pre populated buffer.
+  ///
+  /// \param[in] num_slots size of the selection vector
+  /// \param[in] buffer pre-populated buffer
+  /// \param[out] selection_vector selection vector backed by 'buffer'
+  static Status MakeImmutableInt32(int64_t num_slots,
+                                   std::shared_ptr<arrow::Buffer> buffer,
+                                   std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int64 type records.
   ///

@@ -26,6 +26,9 @@
 
 namespace gandiva {
 
+static auto SELECTION_VECTOR_NONE = std::make_shared<SelectionVectorInt16>(
+    0, 0, nullptr, SelectionVector::SelectionVectorMode::NONE);
+
 Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap_size,
                                            int64_t max_bitmap_index) {
   const uint64_t max_idx = static_cast<uint64_t>(max_bitmap_index);
@@ -71,12 +74,17 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
   return Status::OK();
 }
 
+Status SelectionVector::GetNone(std::shared_ptr<SelectionVector>* selection_vector) {
+  *selection_vector = SELECTION_VECTOR_NONE;
+  return Status::OK();
+}
+
 Status SelectionVector::MakeInt16(int64_t max_slots,
                                   std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   ARROW_RETURN_NOT_OK(SelectionVectorInt16::ValidateBuffer(max_slots, buffer));
-  *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer);
-
+  *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer,
+                                                             SelectionVectorMode::INT16);
   return Status::OK();
 }
 
@@ -84,8 +92,16 @@ Status SelectionVector::MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt16::AllocateBuffer(max_slots, pool, &buffer));
-  *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer);
+  *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer,
+                                                             SelectionVectorMode::INT16);
+  return Status::OK();
+}
 
+Status SelectionVector::MakeImmutableInt16(
+    int64_t num_slots, std::shared_ptr<arrow::Buffer> buffer,
+    std::shared_ptr<SelectionVector>* selection_vector) {
+  *selection_vector = std::make_shared<SelectionVectorInt16>(num_slots, num_slots, buffer,
+                                                             SelectionVectorMode::INT16);
   return Status::OK();
 }
 
@@ -93,7 +109,8 @@ Status SelectionVector::MakeInt32(int64_t max_slots,
                                   std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   ARROW_RETURN_NOT_OK(SelectionVectorInt32::ValidateBuffer(max_slots, buffer));
-  *selection_vector = std::make_shared<SelectionVectorInt32>(max_slots, buffer);
+  *selection_vector = std::make_shared<SelectionVectorInt32>(max_slots, buffer,
+                                                             SelectionVectorMode::INT32);
 
   return Status::OK();
 }
@@ -102,8 +119,17 @@ Status SelectionVector::MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt32::AllocateBuffer(max_slots, pool, &buffer));
-  *selection_vector = std::make_shared<SelectionVectorInt32>(max_slots, buffer);
+  *selection_vector = std::make_shared<SelectionVectorInt32>(max_slots, buffer,
+                                                             SelectionVectorMode::INT32);
 
+  return Status::OK();
+}
+
+Status SelectionVector::MakeImmutableInt32(
+    int64_t num_slots, std::shared_ptr<arrow::Buffer> buffer,
+    std::shared_ptr<SelectionVector>* selection_vector) {
+  *selection_vector = std::make_shared<SelectionVectorInt32>(num_slots, num_slots, buffer,
+                                                             SelectionVectorMode::INT32);
   return Status::OK();
 }
 
@@ -111,7 +137,8 @@ Status SelectionVector::MakeInt64(int64_t max_slots,
                                   std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   ARROW_RETURN_NOT_OK(SelectionVectorInt64::ValidateBuffer(max_slots, buffer));
-  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer);
+  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer,
+                                                             SelectionVectorMode::INT64);
 
   return Status::OK();
 }
@@ -120,7 +147,8 @@ Status SelectionVector::MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt64::AllocateBuffer(max_slots, pool, &buffer));
-  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer);
+  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer,
+                                                             SelectionVectorMode::INT64);
 
   return Status::OK();
 }

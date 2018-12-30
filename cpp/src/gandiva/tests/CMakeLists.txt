@@ -16,6 +16,7 @@
 # under the License.
 
 ADD_GANDIVA_TEST(filter_test)
+ADD_GANDIVA_TEST(filter_project_test)
 ADD_GANDIVA_TEST(projector_test)
 ADD_GANDIVA_TEST(projector_build_validation_test)
 ADD_GANDIVA_TEST(if_expr_test)

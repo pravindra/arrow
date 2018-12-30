@@ -35,9 +35,18 @@ namespace gandiva {
 template <typename C_TYPE, typename A_TYPE>
 class SelectionVectorImpl : public SelectionVector {
  public:
-  SelectionVectorImpl(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer)
-      : max_slots_(max_slots), num_slots_(0), buffer_(buffer) {
+  SelectionVectorImpl(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
+                      SelectionVectorMode mode)
+      : max_slots_(max_slots), num_slots_(0), buffer_(buffer), mode_(mode) {
     raw_data_ = reinterpret_cast<C_TYPE*>(buffer->mutable_data());
+  }
+
+  SelectionVectorImpl(int64_t max_slots, int64_t num_slots,
+                      std::shared_ptr<arrow::Buffer> buffer, SelectionVectorMode mode)
+      : max_slots_(max_slots), num_slots_(num_slots), buffer_(buffer), mode_(mode) {
+    if (buffer) {
+      raw_data_ = const_cast<C_TYPE*>(reinterpret_cast<const C_TYPE*>(buffer->data()));
+    }
   }
 
   uint64_t GetIndex(int64_t index) const override { return raw_data_[index]; }
@@ -61,6 +70,15 @@ class SelectionVectorImpl : public SelectionVector {
     return std::numeric_limits<C_TYPE>::max();
   }
 
+  SelectionVectorMode GetMode() const override { return mode_; }
+
+  void BitMapIntersection(uint8_t* temp_bitmap, uint8_t* dest_bitmap) const override {
+    for (int64_t i = 0; i < num_slots_; i++) {
+      arrow::BitUtil::SetBitTo(dest_bitmap, i,
+                               arrow::BitUtil::GetBit(temp_bitmap, raw_data_[i]));
+    }
+  }
+
   static Status AllocateBuffer(int64_t max_slots, arrow::MemoryPool* pool,
                                std::shared_ptr<arrow::Buffer>* buffer);
 
@@ -75,6 +93,9 @@ class SelectionVectorImpl : public SelectionVector {
 
   std::shared_ptr<arrow::Buffer> buffer_;
   C_TYPE* raw_data_;
+
+  /// SelectionVector mode
+  SelectionVectorMode mode_;
 };
 
 template <typename C_TYPE, typename A_TYPE>
