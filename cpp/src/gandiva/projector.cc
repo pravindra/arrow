@@ -90,13 +90,11 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const ArrayDataVector& output_data_vecs) {
-  std::shared_ptr<gandiva::SelectionVector> selection_vector;
-  ARROW_RETURN_NOT_OK(SelectionVector::GetNone(&selection_vector));
-  return Evaluate(batch, batch.num_rows(), *selection_vector, output_data_vecs);
+  return Evaluate(batch, nullptr, output_data_vecs);
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch& batch, const int64_t& num_rows,
-                           const SelectionVector& selection_vector,
+Status Projector::Evaluate(const arrow::RecordBatch& batch,
+                           const SelectionVector* selection_vector,
                            const ArrayDataVector& output_data_vecs) {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
 
@@ -107,6 +105,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, const int64_t& num_r
     return Status::Invalid(ss.str());
   }
 
+  auto num_rows =
+      selection_vector == nullptr ? batch.num_rows() : selection_vector->GetNumSlots();
   int idx = 0;
   for (auto& array_data : output_data_vecs) {
     if (array_data == nullptr) {
@@ -119,22 +119,20 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, const int64_t& num_r
         ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]), num_rows));
     ++idx;
   }
-  return llvm_generator_->Execute(batch, num_rows, selection_vector, output_data_vecs);
+  return llvm_generator_->Execute(batch, selection_vector, output_data_vecs);
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
                            arrow::ArrayVector* output) {
   std::shared_ptr<gandiva::SelectionVector> selection_vector;
-  ARROW_RETURN_NOT_OK(SelectionVector::GetNone(&selection_vector));
-  return Evaluate(batch, batch.num_rows(), *selection_vector, pool, output);
+  return Evaluate(batch, nullptr, pool, output);
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch& batch, const int64_t& num_rows,
-                           const SelectionVector& selection_vector,
+Status Projector::Evaluate(const arrow::RecordBatch& batch,
+                           const SelectionVector* selection_vector,
                            arrow::MemoryPool* pool, arrow::ArrayVector* output) {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
 
-  auto selection_buffer = selection_vector.ToArray()->data()->buffers[1];
   if (output == nullptr) {
     return Status::Invalid("output must be non-null.");
   }
@@ -143,6 +141,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, const int64_t& num_r
     return Status::Invalid("memory pool must be non-null.");
   }
 
+  auto num_rows =
+      selection_vector == nullptr ? batch.num_rows() : selection_vector->GetNumSlots();
   // Allocate the output data vecs.
   ArrayDataVector output_data_vecs;
   for (auto& field : output_fields_) {
@@ -154,7 +154,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, const int64_t& num_r
 
   // Execute the expression(s).
   ARROW_RETURN_NOT_OK(
-      llvm_generator_->Execute(batch, num_rows, selection_vector, output_data_vecs));
+      llvm_generator_->Execute(batch, selection_vector, output_data_vecs));
 
   // Create and return array arrays.
   output->clear();
@@ -181,7 +181,6 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
 
   // This is not strictly required but valgrind gets confused and detects this
   // as uninitialized memory access. See arrow::util::SetBitTo().
-  memset(null_bitmap->mutable_data(), 0, bitmap_bytes);
   if (type->id() == arrow::Type::BOOL) {
     memset(data->mutable_data(), 0, data_len);
   }

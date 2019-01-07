@@ -85,8 +85,7 @@ TEST_F(TestFilterProject, TestSimple16) {
   // Evaluate expression
   arrow::ArrayVector outputs;
 
-  status = projector->Evaluate(*in_batch, selection_vector->GetNumSlots(),
-                               *selection_vector, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, selection_vector.get(), pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -141,8 +140,7 @@ TEST_F(TestFilterProject, TestSimple32) {
   // Evaluate expression
   arrow::ArrayVector outputs;
 
-  status = projector->Evaluate(*in_batch, selection_vector->GetNumSlots(),
-                               *selection_vector, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, selection_vector.get(), pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -197,8 +195,7 @@ TEST_F(TestFilterProject, TestSimple64) {
   // Evaluate expression
   arrow::ArrayVector outputs;
 
-  status = projector->Evaluate(*in_batch, selection_vector->GetNumSlots(),
-                               *selection_vector, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, selection_vector.get(), pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -266,8 +263,7 @@ TEST_F(TestFilterProject, TestSimpleIf) {
 
   // Evaluate project
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, selection_vector->GetNumSlots(),
-                               *selection_vector, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, selection_vector.get(), pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results

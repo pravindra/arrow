@@ -41,10 +41,6 @@ namespace gandiva {
 LLVMGenerator::LLVMGenerator()
     : dump_ir_(false), optimise_ir_(true), enable_ir_traces_(false) {}
 
-static const SelectionVectorMode modes[] = {
-    SelectionVectorMode::NONE, SelectionVectorMode::INT16, SelectionVectorMode::INT32,
-    SelectionVectorMode::INT64};
-
 Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
   std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
@@ -61,19 +57,17 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ExprDecomposer decomposer(function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
+  std::unique_ptr<CompiledExpr> compiled_expr(new CompiledExpr(value_validity, output));
+
   // Generate the IR function for the decomposed expression.
-  std::vector<llvm::Function*> ir_functions;
-  for (SelectionVectorMode mode : modes) {
+  for (auto mode : SelectionVector::kAllModes) {
     llvm::Function* ir_function = nullptr;
     ARROW_RETURN_NOT_OK(
         CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function, mode));
-    ir_functions.push_back(ir_function);
+    compiled_expr->SetIRFunction(mode, ir_function);
   }
 
-  std::unique_ptr<CompiledExpr> compiled_expr(
-      new CompiledExpr(value_validity, output, ir_functions));
   compiled_exprs_.push_back(std::move(compiled_expr));
-
   return Status::OK();
 }
 
@@ -87,10 +81,11 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs) {
   ARROW_RETURN_NOT_OK(engine_->FinalizeModule(optimise_ir_, dump_ir_));
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
-    for (SelectionVectorMode mode : modes) {
-      llvm::Function* ir_func = compiled_expr->ir_function(mode);
-      EvalFunc fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_func));
-      compiled_expr->add_jit_function(mode, fn);
+    for (auto mode : SelectionVector::kAllModes) {
+      auto ir_function = compiled_expr->GetIRFunction(mode);
+      auto jit_function =
+          reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_function));
+      compiled_expr->SetJITFunction(mode, jit_function);
     }
   }
 
@@ -100,16 +95,13 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs) {
 /// Execute the compiled module against the provided vectors.
 Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
                               const ArrayDataVector& output_vector) {
-  std::shared_ptr<SelectionVector> selection_vector;
-  ARROW_CHECK_OK(SelectionVector::GetNone(&selection_vector));
-  return Execute(record_batch, record_batch.num_rows(), *selection_vector, output_vector);
+  return Execute(record_batch, nullptr, output_vector);
 }
 
 /// Execute the compiled module against the provided vectors based on the type of
 /// selection vector.
 Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
-                              const int64_t num_output_rows,
-                              const SelectionVector& selection_vector,
+                              const SelectionVector* selection_vector,
                               const ArrayDataVector& output_vector) {
   DCHECK_GT(record_batch.num_rows(), 0);
 
@@ -119,30 +111,25 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
   for (auto& compiled_expr : compiled_exprs_) {
     // generate data/offset vectors.
 
-    auto mode = selection_vector.GetMode();
-    EvalFunc jit_function = compiled_expr->jit_function(mode);
-    switch (mode) {
-      case SelectionVectorMode::NONE: {
-        jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
-                     nullptr, (int64_t)eval_batch->GetExecutionContext(),
-                     eval_batch->num_records());
-        break;
-      }
-      case SelectionVectorMode::INT16:
-      case SelectionVectorMode::INT32:
-      case SelectionVectorMode::INT64: {
-        auto selection_buffer = selection_vector.ToArray()->data()->buffers[1];
-        jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
-                     const_cast<uint8_t*>(selection_buffer->data()),
-                     (int64_t)eval_batch->GetExecutionContext(), num_output_rows);
-        break;
-      }
-      default: { return Status::Invalid("Unknown mode."); }
+    const uint8_t* selection_buffer = nullptr;
+    auto num_output_rows = record_batch.num_rows();
+    auto mode = SelectionVector::MODE_NONE;
+    if (selection_vector != nullptr) {
+      selection_buffer = selection_vector->GetBuffer().data();
+      num_output_rows = selection_vector->GetNumSlots();
+      mode = selection_vector->GetMode();
     }
+
+    EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
+    jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
+                 selection_buffer, (int64_t)eval_batch->GetExecutionContext(),
+                 num_output_rows);
+
     // check for execution errors
     ARROW_RETURN_IF(
         eval_batch->GetExecutionContext()->has_error(),
         Status::ExecutionError(eval_batch->GetExecutionContext()->get_error()));
+
     // generate validity vectors.
     ComputeBitMapsForExpr(*compiled_expr, *eval_batch, selection_vector);
   }
@@ -248,29 +235,29 @@ llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps, in
 // }
 Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output,
                                        int suffix_idx, llvm::Function** fn,
-                                       SelectionVectorMode selection_vector_mode) {
+                                       SelectionVector::Mode selection_vector_mode) {
   llvm::IRBuilder<>* builder = ir_builder();
   // Create fn prototype :
-  //   int expr_1 (long **addrs, long **bitmaps, long *context_ptr, long nrec)
+  //   int expr_1 (long **addrs, long **bitmaps, <type>* selection_buf, long context_ptr,
+  //   long nrec)
   std::vector<llvm::Type*> arguments;
-  arguments.push_back(types()->i64_ptr_type());
-  arguments.push_back(types()->i64_ptr_type());
+  arguments.push_back(types()->i64_ptr_type());  // addrs
+  arguments.push_back(types()->i64_ptr_type());  // bitmaps
+
   switch (selection_vector_mode) {
-    case SelectionVectorMode::NONE:
-    case SelectionVectorMode::INT16:
+    case SelectionVector::MODE_NONE:
+    case SelectionVector::MODE_UINT16:
       arguments.push_back(types()->ptr_type(types()->i16_type()));
       break;
-    case SelectionVectorMode::INT32:
+    case SelectionVector::MODE_UINT32:
       arguments.push_back(types()->i32_ptr_type());
       break;
-    case SelectionVectorMode::INT64:
+    case SelectionVector::MODE_UINT64:
       arguments.push_back(types()->i64_ptr_type());
       break;
-    default:
-      return Status::Invalid("Unknown mode.");
   }
-  arguments.push_back(types()->i64_type());
-  arguments.push_back(types()->i64_type());
+  arguments.push_back(types()->i64_type());  // context_ptr
+  arguments.push_back(types()->i64_type());  // nrec
   llvm::FunctionType* prototype =
       llvm::FunctionType::get(types()->i32_type(), arguments, false /*isVarArg*/);
 
@@ -315,7 +302,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   llvm::PHINode* loop_var = builder->CreatePHI(types()->i64_type(), 2, "loop_var");
 
   llvm::Value* position_var = loop_var;
-  if (selection_vector_mode != SelectionVectorMode::NONE) {
+  if (selection_vector_mode != SelectionVector::MODE_NONE) {
     position_var = builder->CreateIntCast(
         builder->CreateLoad(builder->CreateGEP(arg_selection_vector, loop_var),
                             "uncasted_position_var"),
@@ -416,7 +403,7 @@ void LLVMGenerator::ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value*
 /// Extract the bitmap addresses, and do an intersection.
 void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
                                           const EvalBatch& eval_batch,
-                                          const SelectionVector& selection_vector) {
+                                          const SelectionVector* selection_vector) {
   auto validities = compiled_expr.value_validity()->validity_exprs();
 
   // Extract all the source bitmap addresses.
@@ -428,23 +415,27 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
   // Extract the destination bitmap address.
   int out_idx = compiled_expr.output()->validity_idx();
   uint8_t* dst_bitmap = eval_batch.GetBuffer(out_idx);
-  int64_t num_records = eval_batch.num_records();
-  LocalBitMapsHolder bit_map_holder = LocalBitMapsHolder(num_records, 1);
-  uint8_t* temp_bitmap = bit_map_holder.GetLocalBitMap(0);
   // Compute the destination bitmap.
-  auto mode = selection_vector.GetMode();
-  auto selection_buffer = selection_vector.ToArray()->data()->buffers[1];
-  switch (mode) {
-    case SelectionVectorMode::NONE: {
-      accumulator.ComputeResult(dst_bitmap);
-      return;
+  if (selection_vector == nullptr) {
+    accumulator.ComputeResult(dst_bitmap);
+  } else {
+    /// The output bitmap is an intersection of some input/local bitmaps. However, with a
+    /// selection vector, only the bits corresponding to the indices in the selection
+    /// vector need to set in the output bitmap. This is done in two steps :
+    ///
+    /// 1. Do the intersection of input/local bitmaps to generate a temporary bitmap.
+    /// 2. copy just the relevant bits from the temporary bitmap to the output bitmap.
+    LocalBitMapsHolder bit_map_holder(eval_batch.num_records(), 1);
+    uint8_t* temp_bitmap = bit_map_holder.GetLocalBitMap(0);
+    accumulator.ComputeResult(temp_bitmap);
+
+    auto num_out_records = selection_vector->GetNumSlots();
+    // the memset isn't required, doing it just for valgrind.
+    memset(dst_bitmap, 0, arrow::BitUtil::BytesForBits(num_out_records));
+    for (auto i = 0; i < num_out_records; ++i) {
+      auto bit = arrow::BitUtil::GetBit(temp_bitmap, selection_vector->GetIndex(i));
+      arrow::BitUtil::SetBitTo(dst_bitmap, i, bit);
     }
-    case SelectionVectorMode::INT16:
-    case SelectionVectorMode::INT32:
-    case SelectionVectorMode::INT64: {
-      accumulator.ComputeResult(temp_bitmap);
-      selection_vector.BitMapIntersection(temp_bitmap, dst_bitmap);
-    } break;
   }
 }
 

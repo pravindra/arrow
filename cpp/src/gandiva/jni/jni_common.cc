@@ -624,13 +624,12 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
       break;
     }
 
-    int output_row_count = 0;
     std::shared_ptr<gandiva::SelectionVector> selection_vector;
     auto selection_buffer = std::make_shared<arrow::Buffer>(
         reinterpret_cast<uint8_t*>(sel_vec_addr), sel_vec_size);
+    int output_row_count;
     switch (sel_vec_type) {
       case types::SV_NONE: {
-        status = gandiva::SelectionVector::GetNone(&selection_vector);
         output_row_count = num_rows;
         break;
       }
@@ -646,8 +645,6 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
         output_row_count = sel_vec_rows;
         break;
       }
-      default:
-        status = gandiva::Status::Invalid("unknown selection vector type");
     }
     if (!status.ok()) {
       break;
@@ -674,8 +671,7 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
           arrow::ArrayData::Make(field->type(), output_row_count, {bitmap_buf, data_buf});
       output.push_back(array_data);
     }
-    status = holder->projector()->Evaluate(*in_batch, output_row_count, *selection_vector,
-                                           output);
+    status = holder->projector()->Evaluate(*in_batch, selection_vector.get(), output);
   } while (0);
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);

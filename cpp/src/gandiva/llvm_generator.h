@@ -42,8 +42,6 @@ namespace gandiva {
 
 class FunctionHolder;
 
-using SelectionVectorMode = SelectionVector::SelectionVectorMode;
-
 /// Builds an LLVM module and generates code for the specified set of expressions.
 class LLVMGenerator {
  public:
@@ -61,9 +59,9 @@ class LLVMGenerator {
                  const ArrayDataVector& output_vector);
 
   /// \brief Execute the built expression against the provided arguments for
-  /// all modes.
-  Status Execute(const arrow::RecordBatch& record_batch, const int64_t output_size,
-                 const SelectionVector& selection_vector,
+  /// all modes. Only works on the records specified in the selection_vector.
+  Status Execute(const arrow::RecordBatch& record_batch,
+                 const SelectionVector* selection_vector,
                  const ArrayDataVector& output_vector);
 
   LLVMTypes* types() { return engine_->types(); }
@@ -175,7 +173,8 @@ class LLVMGenerator {
 
   /// Generate code for the value array of one expression.
   Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
-                          llvm::Function** fn, SelectionVectorMode selection_vector_mode);
+                          llvm::Function** fn,
+                          SelectionVector::Mode selection_vector_mode);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
   llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx);
@@ -207,7 +206,7 @@ class LLVMGenerator {
   /// \param[in] selection_vector the list of selected positions
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
                              const EvalBatch& eval_batch,
-                             const SelectionVector& selection_vector);
+                             const SelectionVector* selection_vector);
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..

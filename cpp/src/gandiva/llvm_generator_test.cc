@@ -87,7 +87,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   llvm::Function* ir_func = nullptr;
 
   status = generator->CodeGenExprValue(func_dex, desc_sum, 0, &ir_func,
-                                       SelectionVectorMode::NONE);
+                                       SelectionVector::MODE_NONE);
   EXPECT_TRUE(status.ok()) << status.message();
 
   status = generator->engine_->FinalizeModule(true, false);

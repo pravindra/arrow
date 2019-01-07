@@ -33,7 +33,14 @@ class SelectionVector {
  public:
   virtual ~SelectionVector() = default;
 
-  enum class SelectionVectorMode : int { NONE = 0, INT16, INT32, INT64 };
+  enum Mode : int {
+    MODE_NONE,
+    MODE_UINT16,
+    MODE_UINT32,
+    MODE_UINT64,
+  };
+  static constexpr Mode kAllModes[] = {MODE_NONE, MODE_UINT16, MODE_UINT32, MODE_UINT64};
+  static constexpr int kNumModes = sizeof (kAllModes) / sizeof (Mode);
 
   /// Get the value at a given index.
   virtual uint64_t GetIndex(int64_t index) const = 0;
@@ -56,11 +63,11 @@ class SelectionVector {
   /// Convert to arrow-array.
   virtual ArrayPtr ToArray() const = 0;
 
-  /// Mode of SelectionVector
-  virtual SelectionVectorMode GetMode() const = 0;
+  /// Get the underlying arrow buffer.
+  virtual arrow::Buffer& GetBuffer() const = 0;
 
-  /// Intersect bitmaps
-  virtual void BitMapIntersection(uint8_t* temp_bitmap, uint8_t* dest_bitmap) const = 0;
+  /// Mode of SelectionVector
+  virtual Mode GetMode() const = 0;
 
   /// \brief populate selection vector for all the set bits in the bitmap.
   ///
@@ -70,9 +77,6 @@ class SelectionVector {
   ///            capacity in the bitmap, due to alignment/padding).
   Status PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap_size,
                             int64_t max_bitmap_index);
-
-  /// \brief make selection vector with mode NONE.
-  static Status GetNone(std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int16 type records.
   ///
