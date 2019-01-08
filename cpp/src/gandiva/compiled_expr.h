@@ -63,10 +63,10 @@ class CompiledExpr {
   FieldDescriptorPtr output_;
 
   // IR functions for various modes in the generated code
-  llvm::Function* ir_functions_[SelectionVector::kNumModes];
+  std::array<llvm::Function*, SelectionVector::kNumModes> ir_functions_;
 
   // JIT functions in the generated code (set after the module is optimised and finalized)
-  EvalFunc jit_functions_[SelectionVector::kNumModes];
+  std::array<EvalFunc, SelectionVector::kNumModes> jit_functions_;
 };
 
 }  // namespace gandiva
