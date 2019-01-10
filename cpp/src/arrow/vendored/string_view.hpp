@@ -507,7 +507,7 @@ public:
             return data_at( pos );
         }
 
-        throw std::out_of_range("nonst::string_view::at()");
+        //throw std::out_of_range("nonst::string_view::at()");
     }
 
     nssv_constexpr const_reference front() const { return data_at( 0 );          }
@@ -541,8 +541,8 @@ public:
 
     size_type copy( CharT * dest, size_type n, size_type pos = 0 ) const
     {
-        if ( pos > size() )
-            throw std::out_of_range("nonst::string_view::copy()");
+        //if ( pos > size() )
+        //    throw std::out_of_range("nonst::string_view::copy()");
 
         const size_type rlen = (std::min)( n, size() - pos );
 
@@ -553,8 +553,8 @@ public:
 
     nssv_constexpr14 basic_string_view substr( size_type pos = 0, size_type n = npos ) const
     {
-        if ( pos > size() )
-            throw std::out_of_range("nonst::string_view::substr()");
+        //if ( pos > size() )
+        //    throw std::out_of_range("nonst::string_view::substr()");
 
         return basic_string_view( data() + pos, (std::min)( n, size() - pos ) );
     }

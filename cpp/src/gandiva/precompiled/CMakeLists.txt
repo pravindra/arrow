@@ -42,6 +42,7 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
             -std=c++11 -emit-llvm
             -DNDEBUG # DCHECK macros not implemented in precompiled code
             -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
+            -fno-cxx-exceptions
             -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
             -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
