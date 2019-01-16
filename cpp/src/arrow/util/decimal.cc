@@ -406,22 +406,30 @@ Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal12
 }
 
 Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
+  Status status;
+
   switch (dstatus) {
     case DecimalStatus::kSuccess:
-      return Status::OK();
+      status = Status::OK();
+      break;
 
     case DecimalStatus::kDivideByZero:
-      return Status::Invalid("Division by 0 in Decimal128");
+      status = Status::Invalid("Division by 0 in Decimal128");
+      break;
 
     case DecimalStatus::kBuildArrayFiveInts:
-      return Status::Invalid("Can't build Decimal128 with 5 ints.");
+      status = Status::Invalid("Can't build Decimal128 with 5 ints.");
+      break;
 
     case DecimalStatus::kBuildArrayUnsupportedLength:
-      return Status::Invalid("Unsupported length for building Decimal128");
+      status = Status::Invalid("Unsupported length for building Decimal128");
+      break;
 
     case DecimalStatus::kRescaleDataLoss:
-      return Status::Invalid("Rescaling decimal value would cause data loss");
+      status = Status::Invalid("Rescaling decimal value would cause data loss");
+      break;
   }
+  return status;
 }
 
 }  // namespace arrow
