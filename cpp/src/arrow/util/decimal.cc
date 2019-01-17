@@ -197,8 +197,7 @@ std::string Decimal128::ToIntegerString() const {
 
   // get anything above 10 ** 36 and print it
   Decimal128 top;
-  auto s = DivideBasic(kTenTo36, &top, &remainder);
-  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  DCHECK_OK(Divide(kTenTo36, &top, &remainder));
 
   if (top != 0) {
     buf << static_cast<int64_t>(top);
@@ -208,7 +207,7 @@ std::string Decimal128::ToIntegerString() const {
 
   // now get anything above 10 ** 18 and print it
   Decimal128 tail;
-  s = remainder.DivideBasic(kTenTo18, &top, &tail);
+  auto s = remainder.Divide(kTenTo18, &top, &tail);
 
   if (need_fill || top != 0) {
     if (need_fill) {

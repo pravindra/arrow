@@ -64,13 +64,13 @@ class ARROW_EXPORT Decimal128 : public DecimalBasic128 {
 
   Status Divide(const Decimal128& divisor, Decimal128* result,
                 Decimal128* remainder) const {
-    auto dstatus = DivideBasic(divisor, result, remainder);
+    auto dstatus = DecimalBasic128::Divide(divisor, result, remainder);
     return ToArrowStatus(dstatus);
   }
 
-  /// \brief Convert DecimalBasic128 from one scale to another
+  /// \brief Convert Decimal128 from one scale to another
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
-    auto dstatus = RescaleBasic(original_scale, new_scale, out);
+    auto dstatus = DecimalBasic128::Rescale(original_scale, new_scale, out);
     return ToArrowStatus(dstatus);
   }
 

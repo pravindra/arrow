@@ -140,10 +140,14 @@ void DecimalBasic128::ToBytes(uint8_t* out) const {
 }
 
 DecimalBasic128::operator int64_t() const {
+#ifdef GANDIVA_IR
+  DCHECK(high_bits_ == 0 || high_bits_ == -1);
+#else
   DCHECK(high_bits_ == 0 || high_bits_ == -1)
       << "Trying to cast an DecimalBasic128 greater than the value range of a "
          "int64_t. high_bits_ must be equal to 0 or -1, got: "
       << high_bits_;
+#endif
   return static_cast<int64_t>(low_bits_);
 }
 
@@ -180,7 +184,7 @@ DecimalBasic128& DecimalBasic128::operator-=(const DecimalBasic128& right) {
 
 DecimalBasic128& DecimalBasic128::operator/=(const DecimalBasic128& right) {
   DecimalBasic128 remainder;
-  auto s = DivideBasic(right, this, &remainder);
+  auto s = Divide(right, this, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
 }
@@ -422,9 +426,9 @@ static DecimalStatus SingleDivide(const uint32_t* dividend, int64_t dividend_len
   return DecimalStatus::kSuccess;
 }
 
-DecimalStatus DecimalBasic128::DivideBasic(const DecimalBasic128& divisor,
-                                           DecimalBasic128* result,
-                                           DecimalBasic128* remainder) const {
+DecimalStatus DecimalBasic128::Divide(const DecimalBasic128& divisor,
+                                      DecimalBasic128* result,
+                                      DecimalBasic128* remainder) const {
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
   uint32_t dividend_array[5];
@@ -589,7 +593,7 @@ DecimalBasic128 operator*(const DecimalBasic128& left, const DecimalBasic128& ri
 DecimalBasic128 operator/(const DecimalBasic128& left, const DecimalBasic128& right) {
   DecimalBasic128 remainder;
   DecimalBasic128 result;
-  auto s = left.DivideBasic(right, &result, &remainder);
+  auto s = left.Divide(right, &result, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return result;
 }
@@ -597,7 +601,7 @@ DecimalBasic128 operator/(const DecimalBasic128& left, const DecimalBasic128& ri
 DecimalBasic128 operator%(const DecimalBasic128& left, const DecimalBasic128& right) {
   DecimalBasic128 remainder;
   DecimalBasic128 result;
-  auto s = left.DivideBasic(right, &result, &remainder);
+  auto s = left.Divide(right, &result, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return remainder;
 }
@@ -609,7 +613,7 @@ static bool RescaleWouldCauseDataLoss(const DecimalBasic128& value, int32_t delt
   if (delta_scale < 0) {
     DCHECK_NE(multiplier, 0);
     DecimalBasic128 remainder;
-    auto status = value.DivideBasic(multiplier, result, &remainder);
+    auto status = value.Divide(multiplier, result, &remainder);
     DCHECK_EQ(status, DecimalStatus::kSuccess);
     return remainder != 0;
   }
@@ -618,10 +622,10 @@ static bool RescaleWouldCauseDataLoss(const DecimalBasic128& value, int32_t delt
   return (value < 0) ? *result > value : *result < value;
 }
 
-DecimalStatus DecimalBasic128::RescaleBasic(int32_t original_scale, int32_t new_scale,
-                                            DecimalBasic128* out) const {
-  DCHECK_NE(out, nullptr) << "out is nullptr";
-  DCHECK_NE(original_scale, new_scale) << "original_scale != new_scale";
+DecimalStatus DecimalBasic128::Rescale(int32_t original_scale, int32_t new_scale,
+                                       DecimalBasic128* out) const {
+  DCHECK_NE(out, nullptr);
+  DCHECK_NE(original_scale, new_scale);
 
   const int32_t delta_scale = new_scale - original_scale;
   const int32_t abs_delta_scale = std::abs(delta_scale);
@@ -647,7 +651,7 @@ void DecimalBasic128::GetWholeAndFraction(int scale, DecimalBasic128* whole,
   DCHECK_LE(scale, 38);
 
   DecimalBasic128 multiplier(ScaleMultipliers[scale]);
-  DCHECK_EQ(DivideBasic(multiplier, whole, fraction), DecimalStatus::kSuccess);
+  DCHECK_EQ(Divide(multiplier, whole, fraction), DecimalStatus::kSuccess);
 }
 
 const DecimalBasic128& DecimalBasic128::GetScaleMultiplier(int32_t scale) {
@@ -671,7 +675,7 @@ DecimalBasic128 DecimalBasic128::ReduceScaleBy(int32_t reduce_by, bool round) co
   DecimalBasic128 divisor(ScaleMultipliers[reduce_by]);
   DecimalBasic128 result;
   DecimalBasic128 remainder;
-  DCHECK_EQ(DivideBasic(divisor, &result, &remainder), DecimalStatus::kSuccess);
+  DCHECK_EQ(Divide(divisor, &result, &remainder), DecimalStatus::kSuccess);
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
     if (remainder.Abs() >= divisor_half) {

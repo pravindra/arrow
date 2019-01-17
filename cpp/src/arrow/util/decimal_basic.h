@@ -89,8 +89,8 @@ class ARROW_EXPORT DecimalBasic128 {
   ///  -21 / -5 ->  4, -1
   /// \param divisor the number to divide by
   /// \param remainder the remainder after the division
-  DecimalStatus DivideBasic(const DecimalBasic128& divisor, DecimalBasic128* result,
-                            DecimalBasic128* remainder) const;
+  DecimalStatus Divide(const DecimalBasic128& divisor, DecimalBasic128* result,
+                       DecimalBasic128* remainder) const;
 
   /// \brief In-place division.
   DecimalBasic128& operator/=(const DecimalBasic128& right);
@@ -128,8 +128,8 @@ class ARROW_EXPORT DecimalBasic128 {
   static const DecimalBasic128& GetScaleMultiplier(int32_t scale);
 
   /// \brief Convert DecimalBasic128 from one scale to another
-  DecimalStatus RescaleBasic(int32_t original_scale, int32_t new_scale,
-                             DecimalBasic128* out) const;
+  DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
+                        DecimalBasic128* out) const;
 
   /// \brief Scale up.
   DecimalBasic128 IncreaseScaleBy(int32_t increase_by) const;
