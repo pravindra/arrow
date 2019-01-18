@@ -49,7 +49,7 @@ before_script:
 script:
   - mkdir -p dist
   - arrow/dev/tasks/gandiva-jars/build-cpp.sh
-  - arrow/dev/tasks/gandiva-jars/build-java.sh
+  #- arrow/dev/tasks/gandiva-jars/build-java.sh
 
 deploy:
   provider: releases
