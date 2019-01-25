@@ -25,6 +25,10 @@ sudo apt-get install -y -qq \
     gdb binutils ccache libboost-dev libboost-filesystem-dev \
     libboost-system-dev libboost-regex-dev
 
+if [ "$CXX" == "g++-4.9" ]; then		
+    sudo apt-get install -y -qq g++-4.9		
+fi
+
 if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
     sudo apt-get install -y -qq valgrind
 fi

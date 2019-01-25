@@ -23,6 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 if [ ! -e $CPP_TOOLCHAIN ]; then
     CONDA_PACKAGES=""
+    CONDA_LABEL=""
 
     if [ $ARROW_TRAVIS_GANDIVA == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
         CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=6.0.1"
@@ -30,8 +31,9 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
 
     if [ $TRAVIS_OS_NAME == "linux" ]; then
         if [ "$DISTRO_CODENAME" == "trusty" ]; then
-            # These are required to work with other conda-forge packages.
-            CONDA_PACKAGES="$CONDA_PACKAGES gcc_linux-64 gxx_linux-64"
+            # These cause lots of linking errors. 
+            # CONDA_PACKAGES="$CONDA_PACKAGES gcc_linux-64 gxx_linux-64"
+            CONDA_LABEL=" -c conda-forge/label/cf201901"
         else
             # Use newer binutils when linking against conda-provided libraries
             CONDA_PACKAGES="$CONDA_PACKAGES binutils"
@@ -44,7 +46,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     fi
 
     # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN \
+    conda create -y -q -p $CPP_TOOLCHAIN $CONDA_LABEL \
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
         $CONDA_PACKAGES \
         ccache \
