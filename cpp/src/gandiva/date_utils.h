@@ -67,8 +67,6 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
   std::istringstream stream(buf);
   stream.imbue(lc_all);
 
-  // TODO: date::parse fails parsing when the hour value is 0.
-  // eg.1886-12-01 00:00:00
   date::sys_seconds seconds;
   if (ignoreTimeInDay) {
     date::sys_days days;

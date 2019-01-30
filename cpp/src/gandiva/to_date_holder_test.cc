@@ -62,13 +62,10 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
       to_date(&execution_context_, "1986-12-01 01:01:01 +0800", true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
-#if 0
-  // TODO : this fails parsing with date::parse and strptime on linux
   millis_since_epoch =
-      to_date(&execution_context_, "1886-12-01 00:00:00", true, &out_valid);
+      to_date(&execution_context_, "1886-12-01 01:00:00", true, &out_valid);
   EXPECT_EQ(out_valid, true);
   EXPECT_EQ(millis_since_epoch, -2621894400000);
-#endif
 
   millis_since_epoch =
       to_date(&execution_context_, "1886-12-01 01:01:01", true, &out_valid);
