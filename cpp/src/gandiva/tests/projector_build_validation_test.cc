@@ -24,6 +24,8 @@
 namespace gandiva {
 
 using arrow::boolean;
+using arrow::DataType;
+using arrow::decimal;
 using arrow::float32;
 using arrow::int32;
 
@@ -32,6 +34,7 @@ class TestProjector : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
+  Status BuildDummyDecimalProjector(std::shared_ptr<DataType> type);
   arrow::MemoryPool* pool_;
 };
 
@@ -94,7 +97,7 @@ TEST_F(TestProjector, TestNotSupportedDataType) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Field f0 has unsupported data type list";
+  std::string expected_error = "unsupported data type list";
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
@@ -282,6 +285,40 @@ TEST_F(TestProjector, TestAndBooleanArgType) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
+}
+
+using Builder = TreeExprBuilder;
+
+Status TestProjector::BuildDummyDecimalProjector(std::shared_ptr<DataType> type) {
+  auto fielda = field("a", type);
+  auto expr = Builder::MakeExpression(Builder::MakeField(fielda), field("res", type));
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  return Projector::Make(arrow::schema({fielda}), {expr}, TestConfiguration(),
+                         &projector);
+}
+
+TEST_F(TestProjector, TestInvalidDecimalType) {
+  // precision must be <= 38
+  auto status = BuildDummyDecimalProjector(decimal(39, 6));
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.message();
+
+  // precision must be > 0
+  status = BuildDummyDecimalProjector(decimal(0, 0));
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.message();
+
+  // scale must be <= precision
+  status = BuildDummyDecimalProjector(decimal(36, 37));
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.message();
+
+  // scale must be >= 0
+  status = BuildDummyDecimalProjector(decimal(36, -1));
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.message();
+
+  EXPECT_OK(BuildDummyDecimalProjector(decimal(38, 6)));
+  EXPECT_OK(BuildDummyDecimalProjector(decimal(38, 38)));
+  EXPECT_OK(BuildDummyDecimalProjector(decimal(38, 0)));
 }
 
 }  // namespace gandiva

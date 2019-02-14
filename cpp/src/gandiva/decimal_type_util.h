@@ -17,8 +17,7 @@
 
 // Adapted from Apache Impala
 
-#ifndef GANDIVA_DECIMAL_TYPE_SQL_H
-#define GANDIVA_DECIMAL_TYPE_SQL_H
+#pragma once
 
 #include <algorithm>
 #include <memory>
@@ -65,6 +64,25 @@ class GANDIVA_EXPORT DecimalTypeUtil {
 
   static Decimal128TypePtr MakeType(int32_t precision, int32_t scale);
 
+  // validate decimal type.
+  static Status IsValid(const arrow::Decimal128Type& type) {
+    // precision must be in range [1, 38]
+    ARROW_RETURN_IF(
+        type.precision() < 1,
+        Status::Invalid("invalid precision ", type.precision(), ", must be >= 1"));
+    ARROW_RETURN_IF(type.precision() > kMaxPrecision,
+                    Status::Invalid("invalid precision ", type.precision(),
+                                    ", must be <= ", kMaxPrecision));
+
+    // scale must be in range [0, precision]
+    ARROW_RETURN_IF(type.scale() < 0,
+                    Status::Invalid("invalid scale ", type.precision(), ", must be >= 0"));
+    ARROW_RETURN_IF(type.scale() > type.precision(),
+                    Status::Invalid("invalid scale ", type.scale(),
+                                    ", must be <= precision ", type.precision()));
+    return Status::OK();
+  }
+
  private:
   // Reduce the scale if possible so that precision stays <= kMaxPrecision
   static Decimal128TypePtr MakeAdjustedType(int32_t precision, int32_t scale) {
@@ -84,5 +102,3 @@ inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t sc
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_DECIMAL_TYPE_SQL_H

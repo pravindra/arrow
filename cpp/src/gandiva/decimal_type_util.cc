@@ -21,6 +21,7 @@
 namespace gandiva {
 
 constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
+constexpr int32_t DecimalTypeUtil::kMaxPrecision;
 
 #define DCHECK_TYPE(type)                        \
   {                                              \

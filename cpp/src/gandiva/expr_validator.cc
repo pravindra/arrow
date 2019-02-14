@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/expr_validator.h"
 
 namespace gandiva {
@@ -41,12 +42,64 @@ Status ExprValidator::Validate(const ExpressionPtr& expr) {
   return Status::OK();
 }
 
+#define TYPE_VISITOR_DEFAULT(TYPE_CLASS) \
+  Status Visit(const TYPE_CLASS& type) { return VisitDefault(type); }
+
+class ValidateTypeVisitor : public arrow::TypeVisitor {
+ public:
+  ValidateTypeVisitor(LLVMTypes* types) : types_(types) {}
+
+  Status VisitDefault(const arrow::DataType& type) {
+    auto llvm_type = types_->IRType(type.id());
+    ARROW_RETURN_IF(llvm_type == nullptr, Status::ExpressionValidationError(
+                                              "unsupported data type ", type.ToString()));
+    return Status::OK();
+  }
+
+  TYPE_VISITOR_DEFAULT(arrow::NullType)
+  TYPE_VISITOR_DEFAULT(arrow::BooleanType)
+  TYPE_VISITOR_DEFAULT(arrow::Int8Type)
+  TYPE_VISITOR_DEFAULT(arrow::Int16Type)
+  TYPE_VISITOR_DEFAULT(arrow::Int32Type)
+  TYPE_VISITOR_DEFAULT(arrow::Int64Type)
+  TYPE_VISITOR_DEFAULT(arrow::UInt8Type)
+  TYPE_VISITOR_DEFAULT(arrow::UInt16Type)
+  TYPE_VISITOR_DEFAULT(arrow::UInt32Type)
+  TYPE_VISITOR_DEFAULT(arrow::UInt64Type)
+  TYPE_VISITOR_DEFAULT(arrow::HalfFloatType)
+  TYPE_VISITOR_DEFAULT(arrow::FloatType)
+  TYPE_VISITOR_DEFAULT(arrow::DoubleType)
+  TYPE_VISITOR_DEFAULT(arrow::StringType)
+  TYPE_VISITOR_DEFAULT(arrow::BinaryType)
+  TYPE_VISITOR_DEFAULT(arrow::FixedSizeBinaryType)
+  TYPE_VISITOR_DEFAULT(arrow::Date64Type)
+  TYPE_VISITOR_DEFAULT(arrow::Date32Type)
+  TYPE_VISITOR_DEFAULT(arrow::Time32Type)
+  TYPE_VISITOR_DEFAULT(arrow::Time64Type)
+  TYPE_VISITOR_DEFAULT(arrow::TimestampType)
+  TYPE_VISITOR_DEFAULT(arrow::IntervalType)
+  TYPE_VISITOR_DEFAULT(arrow::ListType)
+  TYPE_VISITOR_DEFAULT(arrow::StructType)
+  TYPE_VISITOR_DEFAULT(arrow::UnionType)
+  TYPE_VISITOR_DEFAULT(arrow::DictionaryType)
+
+  Status Visit(const arrow::Decimal128Type& type) {
+    ARROW_RETURN_NOT_OK(VisitDefault(type));
+
+    auto status = DecimalTypeUtil::IsValid(type);
+    return status.ok() ? status : Status::ExpressionValidationError(status.message());
+  }
+
+ private:
+  LLVMTypes* types_;
+};
+
+#undef TYPE_VISITOR_DEFAULT
+
 Status ExprValidator::Visit(const FieldNode& node) {
-  auto llvm_type = types_->IRType(node.return_type()->id());
-  ARROW_RETURN_IF(llvm_type == nullptr,
-                  Status::ExpressionValidationError("Field ", node.field()->name(),
-                                                    " has unsupported data type ",
-                                                    node.return_type()->name()));
+  // Validate the field type.
+  ValidateTypeVisitor type_validator(types_);
+  ARROW_RETURN_NOT_OK(node.field()->type()->Accept(&type_validator));
 
   // Ensure that field is found in schema
   auto field_in_schema_entry = field_map_.find(node.field()->name());
