@@ -18,9 +18,11 @@
 package org.apache.arrow.memory;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.util.AssertionUtil;
@@ -95,20 +97,35 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     this.name = name;
 
     this.thisAsByteBufAllocator = new ArrowByteBufAllocator(this);
+    this.childAllocators = new IdentityHashMap<>();
 
     if (DEBUG) {
-      childAllocators = new IdentityHashMap<>();
       reservations = new IdentityHashMap<>();
       childLedgers = new IdentityHashMap<>();
       historicalLog = new HistoricalLog(DEBUG_LOG_LENGTH, "allocator[%s]", name);
       hist("created by \"%s\", owned = %d", name, this.getAllocatedMemory());
     } else {
-      childAllocators = null;
       reservations = null;
       historicalLog = null;
       childLedgers = null;
     }
 
+  }
+
+  AllocationListener getListener() {
+    return listener;
+  }
+
+  @Override
+  public BufferAllocator getParentAllocator() {
+    return parentAllocator;
+  }
+
+  @Override
+  public Collection<BufferAllocator> getChildAllocators() {
+    synchronized (childAllocators) {
+      return childAllocators.keySet().stream().collect(Collectors.toSet());
+    }
   }
 
   private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
@@ -247,6 +264,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             "] not found in parent allocator[" + name + "]'s childAllocators");
         }
       }
+    } else {
+      synchronized (childAllocators) {
+        childAllocators.remove(childAllocator);
+      }
     }
     listener.onChildRemoved(this, childAllocator);
   }
@@ -287,7 +308,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         outcome = this.allocateBytes(actualRequestSize);
       }
       if (!outcome.isOk()) {
-        throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize, initialRequestSize));
+        throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize,
+            initialRequestSize), outcome.getDetails());
       }
     }
 
@@ -365,6 +387,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         childAllocators.put(childAllocator, childAllocator);
         historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
             childAllocator.name);
+      }
+    } else {
+      synchronized (this.childAllocators) {
+        childAllocators.put(childAllocator, childAllocator);
       }
     }
     this.listener.onChildAdded(this, childAllocator);

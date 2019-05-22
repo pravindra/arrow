@@ -29,6 +29,7 @@ public class OutOfMemoryException extends RuntimeException {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OutOfMemoryException
       .class);
   private static final long serialVersionUID = -6858052345185793382L;
+  private AllocationOutcomeDetails outcomeDetails = null;
 
   public OutOfMemoryException() {
     super();
@@ -46,7 +47,11 @@ public class OutOfMemoryException extends RuntimeException {
 
   public OutOfMemoryException(String message) {
     super(message);
+  }
 
+  public OutOfMemoryException(String message, AllocationOutcomeDetails details) {
+    super(message);
+    this.outcomeDetails = details;
   }
 
   public OutOfMemoryException(Throwable cause) {
@@ -54,5 +59,7 @@ public class OutOfMemoryException extends RuntimeException {
 
   }
 
-
+  public AllocationOutcomeDetails getOutcomeDetails() {
+    return outcomeDetails;
+  }
 }

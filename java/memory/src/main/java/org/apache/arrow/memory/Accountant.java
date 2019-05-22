@@ -78,27 +78,36 @@ class Accountant implements AutoCloseable {
         throw new OutOfMemoryException(String.format(
             "Failure trying to allocate initial reservation for Allocator. " +
                 "Attempted to allocate %d bytes and received an outcome of %s.", reservation,
-            outcome.name()));
+            outcome.getStatus().name()), outcome.getDetails());
       }
     }
   }
 
   /**
    * Attempt to allocate the requested amount of memory. Either completely succeeds or completely
-   * fails. Constructs a a
-   * log of delta
-   *
-   * <p>If it fails, no changes are made to accounting.
+   * fails. If it fails, no changes are made to accounting.
    *
    * @param size The amount of memory to reserve in bytes.
-   * @return True if the allocation was successful, false if the allocation failed.
+   * @return the status and details of allocation at each allocator in the chain.
    */
   AllocationOutcome allocateBytes(long size) {
-    final AllocationOutcome outcome = allocate(size, true, false);
-    if (!outcome.isOk()) {
+    AllocationOutcomeDetails details = null;
+    AllocationOutcome.Status status = allocateBytes(size, details);
+    if (!status.isOk()) {
+      // Try again, but with details this time.
+      // Populating details only on failures avoids performance overhead in the common case (success case).
+      details = new AllocationOutcomeDetails();
+      status = allocateBytes(size, details);
+    }
+    return status.isOk() ? AllocationOutcome.SUCCESS_INSTANCE : new AllocationOutcome(status, details);
+  }
+
+  private AllocationOutcome.Status allocateBytes(long size, AllocationOutcomeDetails details) {
+    final AllocationOutcome.Status status = allocate(size, true, false, details);
+    if (!status.isOk()) {
       releaseBytes(size);
     }
-    return outcome;
+    return status;
   }
 
   private void updatePeak() {
@@ -126,7 +135,7 @@ class Accountant implements AutoCloseable {
    * @return Whether the allocation fit within limits.
    */
   boolean forceAllocate(long size) {
-    final AllocationOutcome outcome = allocate(size, true, true);
+    final AllocationOutcome.Status outcome = allocate(size, true, true, null);
     return outcome.isOk();
   }
 
@@ -152,21 +161,33 @@ class Accountant implements AutoCloseable {
    * @param forceAllocation    Whether we should force the allocation.
    * @return The outcome of the allocation.
    */
-  private AllocationOutcome allocate(final long size, final boolean incomingUpdatePeak, final boolean forceAllocation) {
+  private AllocationOutcome.Status allocate(final long size, final boolean incomingUpdatePeak,
+      final boolean forceAllocation, AllocationOutcomeDetails details) {
     final long newLocal = locallyHeldMemory.addAndGet(size);
     final long beyondReservation = newLocal - reservation;
     final boolean beyondLimit = newLocal > allocationLimit.get();
     final boolean updatePeak = forceAllocation || (incomingUpdatePeak && !beyondLimit);
 
-    AllocationOutcome parentOutcome = AllocationOutcome.SUCCESS;
+    if (details != null) {
+      // Add details if required (used in exceptions and debugging).
+      boolean allocationFailed = true;
+      long allocatedLocal = 0;
+      if (!beyondLimit) {
+        allocatedLocal = size - Math.min(beyondReservation, size);
+        allocationFailed = false;
+      }
+      details.pushEntry(this, newLocal - size, size, allocatedLocal, allocationFailed);
+    }
+
+    AllocationOutcome.Status parentOutcome = AllocationOutcome.Status.SUCCESS;
     if (beyondReservation > 0 && parent != null) {
       // we need to get memory from our parent.
       final long parentRequest = Math.min(beyondReservation, size);
-      parentOutcome = parent.allocate(parentRequest, updatePeak, forceAllocation);
+      parentOutcome = parent.allocate(parentRequest, updatePeak, forceAllocation, details);
     }
 
-    final AllocationOutcome finalOutcome = beyondLimit ? AllocationOutcome.FAILED_LOCAL :
-        parentOutcome.isOk() ? AllocationOutcome.SUCCESS : AllocationOutcome.FAILED_PARENT;
+    final AllocationOutcome.Status finalOutcome = beyondLimit ? AllocationOutcome.Status.FAILED_LOCAL :
+        parentOutcome.isOk() ? AllocationOutcome.Status.SUCCESS : AllocationOutcome.Status.FAILED_PARENT;
 
     if (updatePeak) {
       updatePeak();

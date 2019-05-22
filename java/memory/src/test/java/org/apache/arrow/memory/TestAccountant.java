@@ -82,7 +82,7 @@ public class TestAccountant {
     assertEquals(10, child.getHeadroom());
     {
       AllocationOutcome first = child.allocateBytes(1);
-      assertEquals(AllocationOutcome.SUCCESS, first);
+      assertEquals(AllocationOutcome.Status.SUCCESS, first.getStatus());
     }
 
     // child will have new allocation
@@ -93,7 +93,7 @@ public class TestAccountant {
 
     {
       AllocationOutcome first = child.allocateBytes(1);
-      assertEquals(AllocationOutcome.SUCCESS, first);
+      assertEquals(AllocationOutcome.Status.SUCCESS, first.getStatus());
     }
 
     // child will have new allocation
@@ -112,7 +112,7 @@ public class TestAccountant {
 
     {
       AllocationOutcome first = child.allocateBytes(2);
-      assertEquals(AllocationOutcome.SUCCESS, first);
+      assertEquals(AllocationOutcome.Status.SUCCESS, first.getStatus());
     }
 
     // child will have new allocation
@@ -126,7 +126,7 @@ public class TestAccountant {
 
     {
       AllocationOutcome first = child.allocateBytes(7);
-      assertEquals(AllocationOutcome.SUCCESS, first);
+      assertEquals(AllocationOutcome.Status.SUCCESS, first.getStatus());
     }
 
     // child will have new allocation
@@ -145,7 +145,7 @@ public class TestAccountant {
     assertEquals(8, parent.getHeadroom());
 
     AllocationOutcome first = child.allocateBytes(10);
-    assertEquals(AllocationOutcome.FAILED_PARENT, first);
+    assertEquals(AllocationOutcome.Status.FAILED_PARENT, first.getStatus());
 
     // unchanged
     assertEquals(1, child.getAllocatedMemory());

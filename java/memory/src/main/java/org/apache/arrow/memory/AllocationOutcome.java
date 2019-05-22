@@ -20,35 +20,61 @@ package org.apache.arrow.memory;
 /**
  * Describes the type of outcome that occurred when trying to account for allocation of memory.
  */
-public enum AllocationOutcome {
+public class AllocationOutcome {
+  private final Status status;
+  private final AllocationOutcomeDetails details;
+  static final AllocationOutcome SUCCESS_INSTANCE = new AllocationOutcome(Status.SUCCESS);
 
-  /**
-   * Allocation succeeded.
-   */
-  SUCCESS(true),
+  public AllocationOutcome(Status status, AllocationOutcomeDetails details) {
+    this.status = status;
+    this.details = details;
+  }
 
-  /**
-   * Allocation succeeded but only because the allocator was forced to move beyond a limit.
-   */
-  FORCED_SUCCESS(true),
+  public AllocationOutcome(Status status) {
+    this(status, null);
+  }
 
-  /**
-   * Allocation failed because the local allocator's limits were exceeded.
-   */
-  FAILED_LOCAL(false),
+  public Status getStatus() {
+    return status;
+  }
 
-  /**
-   * Allocation failed because a parent allocator's limits were exceeded.
-   */
-  FAILED_PARENT(false);
-
-  private final boolean ok;
-
-  AllocationOutcome(boolean ok) {
-    this.ok = ok;
+  public AllocationOutcomeDetails getDetails() {
+    return details;
   }
 
   public boolean isOk() {
-    return ok;
+    return status.isOk();
+  }
+
+  public enum Status {
+    /**
+     * Allocation succeeded.
+     */
+    SUCCESS(true),
+
+    /**
+     * Allocation succeeded but only because the allocator was forced to move beyond a limit.
+     */
+    FORCED_SUCCESS(true),
+
+    /**
+     * Allocation failed because the local allocator's limits were exceeded.
+     */
+    FAILED_LOCAL(false),
+
+    /**
+     * Allocation failed because a parent allocator's limits were exceeded.
+     */
+    FAILED_PARENT(false);
+
+    private final boolean ok;
+
+    Status(boolean ok) {
+      this.ok = ok;
+    }
+
+    public boolean isOk() {
+      return ok;
+    }
   }
 }
