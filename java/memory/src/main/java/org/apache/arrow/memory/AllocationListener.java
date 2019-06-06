@@ -53,6 +53,21 @@ public interface AllocationListener {
    */
   default void onRelease(long size) {}
 
+  /**
+   * Called each time a the reference count is incremented.
+   *
+   * <p>An exception cannot be thrown by this method.
+   * @param count the increment in reference count.
+   */
+  default void onRefIncrement(int count) {}
+
+  /**
+   * Called each time a the reference count is decremented.
+   *
+   * <p>An exception cannot be thrown by this method.
+   * @param count the increment in reference count.
+   */
+  default void onRefDecrement(int count) {}
 
   /**
    * Called whenever an allocation failed, giving the caller a chance to create some space in the

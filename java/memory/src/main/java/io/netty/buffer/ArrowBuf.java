@@ -60,7 +60,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   private static final AtomicLong idGenerator = new AtomicLong(0);
   private static final int LOG_BYTES_PER_ROW = 10;
   private final long id = idGenerator.incrementAndGet();
-  private final AtomicInteger refCnt;
   private final UnsafeDirectLittleEndian udle;
   private final long addr;
   private final int offset;
@@ -74,7 +73,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   /**
    * Constructs a new ArrowBuf
-   * @param refCnt The atomic integer to use for reference counting this buffer.
    * @param ledger The ledger to use for tracking memory usage of this buffer.
    * @param byteBuf The underlying storage for this buffer.
    * @param manager The manager that handles replacing this buffer.
@@ -84,7 +82,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @param isEmpty  Indicates if this buffer is empty which enables some optimizations.
    */
   public ArrowBuf(
-      final AtomicInteger refCnt,
       final BufferLedger ledger,
       final UnsafeDirectLittleEndian byteBuf,
       final BufferManager manager,
@@ -94,7 +91,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       boolean isEmpty) {
     // TODO(emkornfield): Should this be byteBuf.maxCapacity - offset?
     super(byteBuf.maxCapacity());
-    this.refCnt = refCnt;
     this.udle = byteBuf;
     this.isEmpty = isEmpty;
     this.bufManager = manager;
@@ -146,7 +142,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     if (isEmpty) {
       return 1;
     } else {
-      return refCnt.get();
+      return ledger.getRefCnt();
     }
   }
 
@@ -511,8 +507,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       historicalLog.recordEvent("retain(%d)", increment);
     }
 
-    final int originalReferenceCount = refCnt.getAndAdd(increment);
-    Preconditions.checkArgument(originalReferenceCount > 0);
+    final int newReferenceCount = ledger.increment(increment);
+    Preconditions.checkArgument(newReferenceCount > increment);
     return this;
   }
 

@@ -278,7 +278,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(new AtomicInteger(), null, AllocationManager.EMPTY, null, null, 0, 0, true);
+    return new ArrowBuf(null, AllocationManager.EMPTY, null, null, 0, 0, true);
   }
 
   @Override

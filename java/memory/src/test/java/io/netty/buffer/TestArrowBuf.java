@@ -23,6 +23,7 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.apache.arrow.memory.AllocationListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
@@ -126,4 +127,97 @@ public class TestArrowBuf {
     }
   }
 
+  private static final class TestAllocationListener implements AllocationListener {
+    long cumulativeRefCnt;
+
+    TestAllocationListener() {
+      this.cumulativeRefCnt = 0;
+    }
+
+    @Override
+    public void onRefIncrement(int count) {
+      cumulativeRefCnt += count;
+    }
+
+    @Override
+    public void onRefDecrement(int count) {
+      cumulativeRefCnt -= count;
+    }
+
+    public long getCumulativeRefCnt() {
+      return cumulativeRefCnt;
+    }
+  }
+
+  @Test
+  public void testCumulativeRefCnt() {
+    TestAllocationListener listener = new TestAllocationListener();
+
+    try (BufferAllocator allocator = new RootAllocator(listener, Long.MAX_VALUE)) {
+      try (ArrowBuf buf = allocator.buffer(1024)) {
+        assertEquals(1, listener.getCumulativeRefCnt());
+
+        // slice with retain.
+        try (ArrowBuf slice = buf.slice().retain()) {
+          assertEquals(2, listener.getCumulativeRefCnt());
+        }
+        assertEquals(1, listener.getCumulativeRefCnt());
+
+        // slice without retain (shouldn't change the cumulative refCnt
+        ArrowBuf sliceNoRetain = buf.slice();
+        assertEquals(1, listener.getCumulativeRefCnt());
+      }
+
+      assertEquals(0, listener.getCumulativeRefCnt());
+    }
+  }
+
+  @Test
+  public void testCumulativeRefCntOnTransfer() {
+    TestAllocationListener listener = new TestAllocationListener();
+
+    try (BufferAllocator allocator = new RootAllocator(listener, Long.MAX_VALUE)) {
+      try (ArrowBuf buf = allocator.buffer(1024)) {
+        assertEquals(1, listener.getCumulativeRefCnt());
+
+        try (BufferAllocator child = allocator.newChildAllocator("child", 0, Long.MAX_VALUE)) {
+          try (ArrowBuf buf2 = buf.transferOwnership(child).buffer) {
+            // an extra ref for buf2.
+            assertEquals(2, listener.getCumulativeRefCnt());
+          }
+
+          // buf2 closed.
+          assertEquals(1, listener.getCumulativeRefCnt());
+        }
+      }
+    }
+    assertEquals(0, listener.getCumulativeRefCnt());
+  }
+
+  // empty buffers should not affect the cumulative ref count.
+  @Test
+  public void testCumulativeRefCntEmpty() {
+    TestAllocationListener listener = new TestAllocationListener();
+
+    try (BufferAllocator allocator = new RootAllocator(listener, Long.MAX_VALUE)) {
+      try (ArrowBuf buf = allocator.buffer(0)) {
+        assertEquals(0, listener.getCumulativeRefCnt());
+
+        try (ArrowBuf slice = buf.slice().retain()) {
+          assertEquals(0, listener.getCumulativeRefCnt());
+        }
+        assertEquals(0, listener.getCumulativeRefCnt());
+
+        try (BufferAllocator child = allocator.newChildAllocator("child", 0, Long.MAX_VALUE)) {
+          try (ArrowBuf buf2 = buf.transferOwnership(child).buffer) {
+            assertEquals(0, listener.getCumulativeRefCnt());
+          }
+
+          assertEquals(0, listener.getCumulativeRefCnt());
+        }
+      }
+    }
+
+    assertEquals(0, listener.getCumulativeRefCnt());
+  }
 }

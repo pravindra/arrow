@@ -296,7 +296,18 @@ public class AllocationManager {
     }
 
     private void inc() {
-      bufRefCnt.incrementAndGet();
+      increment(1);
+    }
+
+    /**
+     * Increment the ledger's reference count.
+     *
+     * @param increment amount to increase the reference count by.
+     * @return the new reference count
+     */
+    public int increment(int increment) {
+      allocator.listener.onRefIncrement(increment);
+      return bufRefCnt.addAndGet(increment);
     }
 
     /**
@@ -309,6 +320,7 @@ public class AllocationManager {
      */
     public int decrement(int decrement) {
       allocator.assertOpen();
+      allocator.listener.onRefDecrement(decrement);
 
       final int outcome;
       synchronized (AllocationManager.this) {
@@ -320,6 +332,10 @@ public class AllocationManager {
       }
 
       return outcome;
+    }
+
+    public int getRefCnt() {
+      return bufRefCnt.get();
     }
 
     /**
@@ -369,7 +385,6 @@ public class AllocationManager {
       allocator.assertOpen();
 
       final ArrowBuf buf = new ArrowBuf(
-          bufRefCnt,
           this,
           underlying,
           manager,
