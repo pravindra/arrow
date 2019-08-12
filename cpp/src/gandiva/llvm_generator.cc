@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "llvm/ExecutionEngine/GenericValue.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
@@ -123,10 +124,21 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
       num_output_rows = selection_vector->GetNumSlots();
     }
 
+#if 0
     EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
     jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
                  selection_buffer, (int64_t)eval_batch->GetExecutionContext(),
                  num_output_rows);
+#else
+    std::vector<llvm::GenericValue> args(5);
+    args[0] = llvm::GenericValue(eval_batch->GetBufferArray());
+    args[1] = llvm::GenericValue(eval_batch->GetLocalBitMapArray());
+    args[2] = llvm::GenericValue((void*)selection_buffer);
+    args[3].IntVal = llvm::APInt(64, (int64_t)eval_batch->GetExecutionContext());
+    args[4].IntVal = llvm::APInt(64, num_output_rows);
+    auto ret = engine_->execution_engine().runFunction(compiled_expr->GetIRFunction(mode),
+                                                       args);
+#endif
 
     // check for execution errors
     ARROW_RETURN_IF(

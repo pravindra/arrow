@@ -68,6 +68,7 @@ class GANDIVA_EXPORT Engine {
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                const std::vector<llvm::Type*>& args, void* func);
 
+  llvm::ExecutionEngine& execution_engine() { return *execution_engine_.get(); }
  private:
   /// private constructor to ensure engine is created
   /// only through the factory.
@@ -77,7 +78,6 @@ class GANDIVA_EXPORT Engine {
   static void InitOnce();
   static bool init_once_done_;
 
-  llvm::ExecutionEngine& execution_engine() { return *execution_engine_.get(); }
 
   /// load pre-compiled IR modules from precompiled_bitcode.cc and merge them into
   /// the main module.

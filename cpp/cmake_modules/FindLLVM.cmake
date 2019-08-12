@@ -59,6 +59,7 @@ llvm_map_components_to_libnames(LLVM_LIBS
                                 target
                                 linker
                                 analysis
+                                interpreter
                                 debuginfodwarf)
 
 find_program(LLVM_LINK_EXECUTABLE llvm-link HINTS ${LLVM_TOOLS_BINARY_DIR})

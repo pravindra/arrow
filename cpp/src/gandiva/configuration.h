@@ -33,11 +33,27 @@ class ConfigurationBuilder;
 /// at run time.
 class GANDIVA_EXPORT Configuration {
  public:
+  enum OptimiseMode {
+    // optimise for minimal build time (uses interpreter).
+    kMinimalBuildTime,
+
+    kMinimalEvalTime,
+
+    // optimise for minimal eval time (uses JIT with all optimiser passes).
+    kMinimalEvalTime
+  };
+
+  OptimiseMode optimise_mode() { return optimise_mode_; }
+
+  explicit Configuration(OptimiseMode mode);
   friend class ConfigurationBuilder;
 
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
+
+ private:
+  OptimiseMode optimise_mode_;
 };
 
 /// \brief configuration builder for gandiva
@@ -47,7 +63,7 @@ class GANDIVA_EXPORT Configuration {
 class GANDIVA_EXPORT ConfigurationBuilder {
  public:
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(new Configuration());
+    std::shared_ptr<Configuration> configuration(new Configuration(optimise_mode_));
     return configuration;
   }
 
@@ -55,13 +71,18 @@ class GANDIVA_EXPORT ConfigurationBuilder {
     return default_configuration_;
   }
 
+  void set_optimise_mode(Configuration::OptimiseMode mode) {
+    optimise_mode_ = mode;
+  }
+
  private:
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(new Configuration());
+    std::shared_ptr<Configuration> configuration(new Configuration(Configuration::kMinimalEvalTime));
     return configuration;
   }
 
   static const std::shared_ptr<Configuration> default_configuration_;
+  Configuration::OptimiseMode optimise_mode_;
 };
 
 }  // namespace gandiva

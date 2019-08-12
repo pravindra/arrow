@@ -41,6 +41,7 @@
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/ExecutionEngine/Interpreter.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/LegacyPassManager.h>
@@ -105,7 +106,9 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   engine_obj->module_ = cg_module.get();
 
   llvm::EngineBuilder engineBuilder(std::move(cg_module));
-  engineBuilder.setEngineKind(llvm::EngineKind::JIT);
+  engineBuilder.setEngineKind(config->optimise_mode() == Configuration::kMinimalBuildTime ?
+                                llvm::EngineKind::Interpreter :
+                                llvm::EngineKind::JIT);
   engineBuilder.setOptLevel(llvm::CodeGenOpt::Aggressive);
   engineBuilder.setErrorStr(&(engine_obj->llvm_error_));
   engine_obj->execution_engine_.reset(engineBuilder.create());
@@ -189,7 +192,7 @@ Status Engine::RemoveUnusedFunctions() {
 }
 
 // Optimise and compile the module.
-Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
+Status Engine::FinalizeModule(bool dump_ir) {
   auto status = RemoveUnusedFunctions();
   ARROW_RETURN_NOT_OK(status);
 

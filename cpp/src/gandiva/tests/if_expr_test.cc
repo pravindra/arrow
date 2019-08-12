@@ -62,7 +62,7 @@ TEST_F(TestIfExpr, TestSimple) {
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
   int num_records = 4;
